@@ -1,6 +1,16 @@
-PLUGIN_VERSION = "0.14.3"
+PLUGIN_VERSION = "0.14.4"
 
 CHANGELOGS = [
+    {
+        "version": "0.14.4",
+        "date": "2026-04-25",
+        "items": [
+            "增强圣遗物图片反查，兼容 Enka 圣遗物 item_id 与本地 miao-plugin artifact data.json 的 ID 偏移，换角色后也能优先显示本地圣遗物图标",
+            "单角色面板圣遗物区把总分、评级和评分规则独立放到圣遗物卡片上方，位置更接近 miao-plugin 的 arti-stat",
+            "圣遗物卡片不再只显示前两条副词条，改为展示最多四条副词条，包含生命、攻击、防御、精通、充能等全部返回词条",
+            "Enka 刷新面板的 fightPropMap 额外补齐元素/物理伤害加成，避免角色属性区只剩双暴等少数字段",
+        ],
+    },
     {
         "version": "0.14.3",
         "date": "2026-04-25",

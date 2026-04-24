@@ -277,7 +277,7 @@ def _enka_fight_props(props: Dict[str, Any]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             return default
 
-    return {
+    result = {
         "生命值": round(number("2000")),
         "攻击力": round(number("2001")),
         "防御力": round(number("2002")),
@@ -287,6 +287,21 @@ def _enka_fight_props(props: Dict[str, Any]) -> Dict[str, Any]:
         "充能效率": round(number("23") * 100, 1),
         "治疗加成": round(number("26") * 100, 1),
     }
+    element_values = [
+        number("30"),  # 物理
+        number("40"),  # 火
+        number("41"),  # 雷
+        number("42"),  # 水
+        number("43"),  # 草
+        number("44"),  # 风
+        number("45"),  # 岩
+        number("46"),  # 冰
+    ]
+    dmg = max(element_values) if element_values else 0
+    if dmg:
+        result["伤害加成"] = round(dmg * 100, 1)
+        result["元素伤害加成"] = round(dmg * 100, 1)
+    return result
 
 
 def _enka_skill_levels(skill_map: Dict[str, Any]) -> List[int]:

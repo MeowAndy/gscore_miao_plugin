@@ -332,12 +332,16 @@ def _find_artifact_by_item_id(item_id: str) -> Dict[str, Any]:
     target = str(item_id or "")
     if not target:
         return {}
+    targets = {target}
+    if target.isdigit():
+        num = int(target)
+        targets.update({str(num + delta) for delta in range(-5, 6) if num + delta > 0})
     for art in data.values():
         if not isinstance(art, dict):
             continue
         idxs = art.get("idxs") or {}
         for idx, item in idxs.items():
-            if isinstance(item, dict) and str(item.get("id") or "") == target:
+            if isinstance(item, dict) and str(item.get("id") or "") in targets:
                 return {
                     "set_name": str(art.get("name") or ""),
                     "name": str(item.get("name") or ""),
@@ -601,6 +605,14 @@ def _artifact_set_name(rel: Dict[str, Any]) -> str:
     set_name = _display_name(rel.get("set_name"), "")
     if set_name:
         return set_name
+    set_id = str(rel.get("set_id") or rel.get("setId") or "")
+    if set_id:
+        data = _load_json(_resource_path("meta-gs", "artifact", "data.json"))
+        for art_id, item in data.items():
+            if not isinstance(item, dict):
+                continue
+            if str(art_id) == set_id or str(item.get("id") or "") == set_id:
+                return str(item.get("name") or "")
     by_id = _find_artifact_by_item_id(str(rel.get("item_id") or rel.get("itemId") or rel.get("id") or ""))
     if by_id.get("set_name"):
         return str(by_id["set_name"])
@@ -633,10 +645,19 @@ def _artifact_pos_index(rel: Dict[str, Any], fallback_idx: int) -> int:
 
 def _artifact_icon(rel: Dict[str, Any], fallback_idx: int) -> Path | None:
     set_name = _artifact_set_name(rel)
-    if not set_name:
-        return None
     idx = _artifact_pos_index(rel, fallback_idx)
-    return _resource_path("meta-gs", "artifact", "imgs", set_name, f"{idx}.webp")
+    if set_name:
+        path = _resource_path("meta-gs", "artifact", "imgs", set_name, f"{idx}.webp")
+        if path:
+            return path
+    by_id = _find_artifact_by_item_id(str(rel.get("item_id") or rel.get("itemId") or rel.get("id") or ""))
+    set_name = str(by_id.get("set_name") or "")
+    idx = int(by_id.get("idx") or idx)
+    if set_name:
+        path = _resource_path("meta-gs", "artifact", "imgs", set_name, f"{idx}.webp")
+        if path:
+            return path
+    return None
 
 
 def _fit_text(text: str, limit: int) -> str:
@@ -687,6 +708,14 @@ def _prop_value(value: Any) -> str:
     if abs(num - round(num)) < 0.01:
         return f"{round(num)}{suffix}"
     return f"{num:.1f}{suffix}"
+
+
+def _artifact_prop_line(prop: Any) -> str:
+    if isinstance(prop, dict):
+        pn = _prop_name(prop)
+        pv = _prop_value(prop)
+        return f"{pn}+{pv}" if pv else pn
+    return _prop_name(prop)
 
 
 def _artifact_level(value: Any) -> str:
@@ -885,15 +914,20 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
     reliqs = [r for r in (char.get("reliquaries") or []) if isinstance(r, dict)][:5]
     _, weight = _weight_for_char(char)
     total, scores, title = character_artifact_score(char)
-    y = _draw_section_title(draw, y, "圣遗物", f"{len(reliqs)}/5  总分 {total} [{artifact_rank(total)}]")
-    _text(draw, (38, y - 14), f"评分规则：{_fit_text(title, 28)}", (170, 164, 145), FONT_TINY)
-    y += 10
-    card_w, card_h = 176, 158
+    y = _draw_section_title(draw, y, "圣遗物", f"{len(reliqs)}/5")
+    _rounded_r(draw, (25, y, 575, y + 74), 12, (42, 39, 42), (92, 81, 62), 1)
+    _text(draw, (45, y + 15), "圣遗物总分", (210, 210, 210), FONT_SMALL)
+    _text(draw, (170, y + 9), f"{total}", (255, 232, 170), FONT_CARD_TITLE)
+    _text(draw, (278, y + 15), "评级", (210, 210, 210), FONT_SMALL)
+    _text(draw, (330, y + 9), artifact_rank(total), (144, 232, 74), FONT_CARD_TITLE)
+    _text(draw, (45, y + 48), f"评分规则：{_fit_text(title, 40)}", (170, 164, 145), FONT_TINY)
+    y += 92
+    card_w, card_h = 176, 204
     for idx in range(5):
         col = idx % 3
         row = idx // 3
         x = 25 + col * 187
-        yy = y + row * 170
+        yy = y + row * 216
         rel = reliqs[idx] if idx < len(reliqs) else {}
         level = _artifact_level(rel.get("level"))
         rarity = int(rel.get("rarity") or 5)
@@ -913,17 +947,10 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
         score_text = f"{score:.1f} {artifact_rank(score)}" if rel else "-"
         _text(draw, (x + 14, yy + 88), f"+{level}  {score_text}", (255, 232, 170), FONT_TINY)
         if rel:
-            sub_lines = []
-            for prop in (rel.get("sub_props") or [])[:2]:
-                if isinstance(prop, dict):
-                    pn = _prop_name(prop)
-                    pv = _prop_value(prop)
-                    sub_lines.append(f"{pn}+{pv}" if pv else pn)
-                else:
-                    sub_lines.append(_prop_name(prop))
-            _text(draw, (x + 14, yy + 110), _fit_text(" / ".join(sub_lines[:1]), 13), (188, 196, 210), FONT_TINY)
-            _text(draw, (x + 14, yy + 132), _fit_text(" / ".join(sub_lines[1:2]), 13), (188, 196, 210), FONT_TINY)
-    return y + 352
+            sub_lines = [_artifact_prop_line(prop) for prop in (rel.get("sub_props") or [])[:4]]
+            for s_idx, line in enumerate(sub_lines):
+                _text(draw, (x + 14, yy + 112 + s_idx * 20), _fit_text(line, 15), (188, 196, 210), FONT_TINY)
+    return y + 444
 
 
 def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
