@@ -6,8 +6,10 @@ from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
-from ..mys_service import (daily_sign, fetch_sign_info, normalize_cookie,
-                           qrcode_login_cookie, validate_cookie)
+from ..mys_service import (daily_sign, daily_sign_starrail, fetch_sign_info,
+                           fetch_starrail_roles, fetch_starrail_sign_info,
+                           normalize_cookie, qrcode_login_cookie,
+                           validate_cookie)
 from ..store import bind_mys_cookie, get_user_cfg, unbind_mys_cookie
 
 sv_login = SV("GsCoreMiao登录签到")
@@ -23,6 +25,15 @@ def _role_name(role: dict) -> str:
 
 def _role_region(role: dict) -> str:
     return str(role.get("region_name") or role.get("region") or "")
+
+
+def _pick_role_uid(roles: list[dict], uid: str = "") -> str:
+    if uid:
+        for role in roles:
+            if _role_uid(role) == uid:
+                return uid
+        return ""
+    return _role_uid(roles[0]) if roles else ""
 
 
 def _mask_cookie(cookie: str) -> str:
@@ -58,11 +69,17 @@ async def send_login(bot: Bot, ev: Event):
     try:
         roles = await validate_cookie(cookie)
     except Exception as e:
-        return await bot.send(f"登录失败：{e}\n请确认 Cookie 未过期且已绑定原神账号。")
-    await bind_mys_cookie(ev.user_id, ev.bot_id, cookie, roles)
+        return await bot.send(f"登录失败：{e}\n请确认 Cookie 未过期且已绑定原神或崩铁账号。")
+    try:
+        sr_roles = await fetch_starrail_roles(cookie)
+    except Exception:
+        sr_roles = []
+    await bind_mys_cookie(ev.user_id, ev.bot_id, cookie, roles, sr_roles)
     lines = ["【喵喵登录成功】", f"已保存米游社 Cookie：{_mask_cookie(cookie)}", "绑定角色："]
     for idx, role in enumerate(roles[:8], start=1):
-        lines.append(f"{idx}. {_role_name(role)} UID {_role_uid(role)} {_role_region(role)}")
+        lines.append(f"原神{idx}. {_role_name(role)} UID {_role_uid(role)} {_role_region(role)}")
+    for idx, role in enumerate(sr_roles[:8], start=1):
+        lines.append(f"崩铁{idx}. {_role_name(role)} UID {_role_uid(role)} {_role_region(role)}")
     lines.append("之后可使用：喵喵签到 / 喵喵查看登录 / 喵喵删除登录")
     await bot.send("\n".join(lines))
 
@@ -74,12 +91,17 @@ async def send_login_info(bot: Bot, ev: Event):
     cfg = await get_user_cfg(ev.user_id, ev.bot_id)
     cookie = str(cfg.get("mys_cookie") or "")
     roles = cfg.get("mys_roles") or []
+    sr_roles = cfg.get("mys_sr_roles") or []
     if not cookie:
         return await bot.send("当前未登录。请私聊发送：喵喵登录 <米游社Cookie>")
     lines = ["【喵喵登录信息】", f"Cookie：{_mask_cookie(cookie)}", f"默认 UID：{cfg.get('uid') or '-'}"]
     if roles:
-        lines.append("绑定角色：")
+        lines.append("绑定原神角色：")
         for idx, role in enumerate(roles[:8], start=1):
+            lines.append(f"{idx}. {_role_name(role)} UID {_role_uid(role)} {_role_region(role)}")
+    if sr_roles:
+        lines.append("绑定崩铁角色：")
+        for idx, role in enumerate(sr_roles[:8], start=1):
             lines.append(f"{idx}. {_role_name(role)} UID {_role_uid(role)} {_role_region(role)}")
     await bot.send("\n".join(lines))
 
@@ -102,26 +124,61 @@ async def send_daily_sign(bot: Bot, ev: Event):
     cookie = str(cfg.get("mys_cookie") or "")
     if not cookie:
         return await bot.send("当前未登录，无法签到。请私聊发送：喵喵登录 <米游社Cookie>")
-    uid = ((ev.regex_dict or {}).get("uid") or "").strip() or str(cfg.get("uid") or "").strip()
-    if not uid:
-        roles = cfg.get("mys_roles") or []
-        uid = _role_uid(roles[0]) if roles else ""
-    if not uid:
-        return await bot.send("没有找到可签到 UID，请重新登录或使用：喵喵签到 <UID>")
-    try:
-        before = await fetch_sign_info(cookie, uid)
-        signed = bool(before.get("is_sign"))
-        raw = await daily_sign(cookie, uid) if not signed else {"message": "OK", "retcode": -5003}
-        after = await fetch_sign_info(cookie, uid)
-    except Exception as e:
-        return await bot.send(f"签到失败：{e}")
-    total = after.get("total_sign_day") or before.get("total_sign_day") or "?"
-    today = after.get("today") or before.get("today") or ""
-    status = "今日已签到" if signed or raw.get("retcode") == -5003 else "签到成功"
-    await bot.send(
-        "【原神签到】\n"
-        f"🆔 UID：{uid}\n"
-        f"✅ 状态：{status}\n"
-        f"📅 累计签到：{total} 天\n"
-        f"🕒 日期：{today}"
-    )
+    specified_uid = ((ev.regex_dict or {}).get("uid") or "").strip()
+    default_uid = str(cfg.get("uid") or "").strip()
+    gs_roles = cfg.get("mys_roles") or []
+    sr_roles = cfg.get("mys_sr_roles") or []
+    if not sr_roles:
+        try:
+            sr_roles = await fetch_starrail_roles(cookie)
+        except Exception:
+            sr_roles = []
+
+    gs_uid = _pick_role_uid(gs_roles, specified_uid) if specified_uid else (_pick_role_uid(gs_roles, default_uid) or _pick_role_uid(gs_roles))
+    sr_uid = _pick_role_uid(sr_roles, specified_uid)
+    sections: list[str] = []
+    errors: list[str] = []
+
+    if gs_uid:
+        try:
+            before = await fetch_sign_info(cookie, gs_uid)
+            signed = bool(before.get("is_sign"))
+            raw = await daily_sign(cookie, gs_uid) if not signed else {"message": "OK", "retcode": -5003}
+            after = await fetch_sign_info(cookie, gs_uid)
+            total = after.get("total_sign_day") or before.get("total_sign_day") or "?"
+            today = after.get("today") or before.get("today") or ""
+            status = "今日已签到" if signed or raw.get("retcode") == -5003 else "签到成功"
+            sections.append(
+                "【原神签到】\n"
+                f"🆔 UID：{gs_uid}\n"
+                f"✅ 状态：{status}\n"
+                f"📅 累计签到：{total} 天\n"
+                f"🕒 日期：{today}"
+            )
+        except Exception as e:
+            errors.append(f"原神：{e}")
+
+    if sr_uid:
+        try:
+            before = await fetch_starrail_sign_info(cookie, sr_uid)
+            signed = bool(before.get("is_sign"))
+            raw = await daily_sign_starrail(cookie, sr_uid) if not signed else {"message": "OK", "retcode": -5003}
+            after = await fetch_starrail_sign_info(cookie, sr_uid)
+            total = after.get("total_sign_day") or before.get("total_sign_day") or "?"
+            today = after.get("today") or before.get("today") or ""
+            status = "今日已签到" if signed or raw.get("retcode") == -5003 else "签到成功"
+            sections.append(
+                "【崩铁签到】\n"
+                f"🆔 UID：{sr_uid}\n"
+                f"✅ 状态：{status}\n"
+                f"📅 累计签到：{total} 天\n"
+                f"🕒 日期：{today}"
+            )
+        except Exception as e:
+            errors.append(f"崩铁：{e}")
+
+    if sections:
+        return await bot.send("\n\n".join(sections))
+    if errors:
+        return await bot.send("签到失败：" + "；".join(errors))
+    await bot.send("没有找到可签到的原神或崩铁 UID，请重新登录或使用：喵喵签到 <UID>")

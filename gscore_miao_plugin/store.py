@@ -66,11 +66,20 @@ async def bind_uid(user_id: str, bot_id: str, uid: str) -> Dict[str, Any]:
     return await set_user_cfg(user_id, bot_id, {"uid": uid})
 
 
-async def bind_mys_cookie(user_id: str, bot_id: str, cookie: str, roles: list[dict[str, Any]]) -> Dict[str, Any]:
-    default_uid = str((roles[0] or {}).get("game_uid") or (roles[0] or {}).get("uid") or "") if roles else ""
+async def bind_mys_cookie(
+    user_id: str,
+    bot_id: str,
+    cookie: str,
+    roles: list[dict[str, Any]],
+    sr_roles: list[dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    sr_roles = sr_roles or []
+    default_role = (roles[0] if roles else sr_roles[0]) if (roles or sr_roles) else {}
+    default_uid = str(default_role.get("game_uid") or default_role.get("uid") or "") if default_role else ""
     patch: Dict[str, Any] = {
         "mys_cookie": cookie,
         "mys_roles": roles,
+        "mys_sr_roles": sr_roles,
         "login_type": "mys_cookie",
         "login_at": int(time.time()),
     }
@@ -85,7 +94,7 @@ async def unbind_mys_cookie(user_id: str, bot_id: str) -> Dict[str, Any]:
         k = _user_key(user_id, bot_id)
         old = data.get(k, {})
         merged = {**old, "updated_at": int(time.time())}
-        for key in ("mys_cookie", "mys_roles", "login_type", "login_at"):
+        for key in ("mys_cookie", "mys_roles", "mys_sr_roles", "login_type", "login_at"):
             merged.pop(key, None)
         data[k] = merged
         _save_json(data)

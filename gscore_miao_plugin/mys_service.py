@@ -22,6 +22,7 @@ from .config import MiaoConfig
 from .const import PACKAGE_DIR
 
 GENSHIN_SIGN_ACT_ID = "e202311201442471"
+STARRAIL_SIGN_ACT_ID = "e202304121516551"
 
 
 def _timeout() -> float:
@@ -89,14 +90,14 @@ def _headers(cookie: str, q: str = "", b: Dict[str, Any] | None = None) -> Dict[
     return headers
 
 
-def _sign_headers(cookie: str, q: str = "", b: Dict[str, Any] | None = None) -> Dict[str, str]:
+def _sign_headers(cookie: str, q: str = "", b: Dict[str, Any] | None = None, signgame: str = "hk4e") -> Dict[str, str]:
     headers = _headers(cookie, q, b)
     headers.update(
         {
             "DS": get_web_ds_token(True),
             "Referer": "https://webstatic.mihoyo.com/",
             "Origin": "https://webstatic.mihoyo.com",
-            "x-rpc-signgame": "hk4e",
+            "x-rpc-signgame": signgame,
         }
     )
     return headers
@@ -104,6 +105,10 @@ def _sign_headers(cookie: str, q: str = "", b: Dict[str, Any] | None = None) -> 
 
 def _server_id(uid: str) -> str:
     return "cn_qd01" if str(uid).startswith("5") else "cn_gf01"
+
+
+def _starrail_server_id(uid: str) -> str:
+    return "prod_qd_cn" if str(uid).startswith("5") else "prod_gf_cn"
 
 
 def _message(raw: Dict[str, Any]) -> str:
@@ -115,6 +120,21 @@ def _message(raw: Dict[str, Any]) -> str:
 async def fetch_genshin_roles(cookie: str) -> List[Dict[str, Any]]:
     url = "https://api-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie"
     params = {"game_biz": "hk4e_cn"}
+    q = urlencode(params)
+    async with httpx.AsyncClient(timeout=_timeout()) as client:
+        resp = await client.get(url, params=params, headers=_headers(cookie, q))
+        resp.raise_for_status()
+        raw = resp.json()
+    if raw.get("retcode") not in (0, "0"):
+        raise RuntimeError(_message(raw))
+    data = raw.get("data") or {}
+    roles = data.get("list") or []
+    return roles if isinstance(roles, list) else []
+
+
+async def fetch_starrail_roles(cookie: str) -> List[Dict[str, Any]]:
+    url = "https://api-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie"
+    params = {"game_biz": "hkrpg_cn"}
     q = urlencode(params)
     async with httpx.AsyncClient(timeout=_timeout()) as client:
         resp = await client.get(url, params=params, headers=_headers(cookie, q))
@@ -140,6 +160,19 @@ async def fetch_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
     return raw.get("data") or {}
 
 
+async def fetch_starrail_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
+    url = "https://api-takumi.mihoyo.com/event/luna/info"
+    params = {"act_id": STARRAIL_SIGN_ACT_ID, "lang": "zh-cn", "region": _starrail_server_id(uid), "uid": uid}
+    q = urlencode(params)
+    async with httpx.AsyncClient(timeout=_timeout()) as client:
+        resp = await client.get(url, params=params, headers=_sign_headers(cookie, q, signgame="hkrpg"))
+        resp.raise_for_status()
+        raw = resp.json()
+    if raw.get("retcode") not in (0, "0"):
+        raise RuntimeError(_message(raw))
+    return raw.get("data") or {}
+
+
 async def daily_sign(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/sign"
     body = {"act_id": GENSHIN_SIGN_ACT_ID, "lang": "zh-cn", "region": _server_id(uid), "uid": uid}
@@ -153,10 +186,24 @@ async def daily_sign(cookie: str, uid: str) -> Dict[str, Any]:
     return raw
 
 
+async def daily_sign_starrail(cookie: str, uid: str) -> Dict[str, Any]:
+    url = "https://api-takumi.mihoyo.com/event/luna/sign"
+    body = {"act_id": STARRAIL_SIGN_ACT_ID, "lang": "zh-cn", "region": _starrail_server_id(uid), "uid": uid}
+    async with httpx.AsyncClient(timeout=_timeout()) as client:
+        resp = await client.post(url, json=body, headers=_sign_headers(cookie, "", body, signgame="hkrpg"))
+        resp.raise_for_status()
+        raw = resp.json()
+    retcode = raw.get("retcode")
+    if retcode not in (0, "0", -5003):
+        raise RuntimeError(_message(raw))
+    return raw
+
+
 async def validate_cookie(cookie: str) -> List[Dict[str, Any]]:
     roles = await fetch_genshin_roles(cookie)
-    if not roles:
-        raise RuntimeError("当前 Cookie 未绑定原神角色")
+    sr_roles = await fetch_starrail_roles(cookie)
+    if not roles and not sr_roles:
+        raise RuntimeError("当前 Cookie 未绑定原神或崩铁角色")
     return roles
 
 

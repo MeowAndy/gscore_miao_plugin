@@ -2,6 +2,15 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.14.6] - 2026-04-25
+
+### Added
+- 迁移崩坏：星穹铁道米游社签到接口，使用 `hkrpg_cn` 角色列表、`event/luna/sign` 与 `x-rpc-signgame=hkrpg`。
+- `喵喵签到` 现在会同时尝试原神和崩铁；缺少其中一个账号时，只回复已成功签到的游戏段落。
+
+### Changed
+- 登录信息会保存和展示崩铁角色，支持仅绑定崩铁角色的 Cookie。
+
 ## [0.14.5] - 2026-04-25
 
 ### Fixed

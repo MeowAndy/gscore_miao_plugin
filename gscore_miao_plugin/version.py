@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.14.5"
+PLUGIN_VERSION = "0.14.6"
 
 CHANGELOGS = [
+    {
+        "version": "0.14.6",
+        "date": "2026-04-25",
+        "items": [
+            "迁移崩坏：星穹铁道米游社签到接口，使用 hkrpg_cn 角色列表、event/luna/sign 与 x-rpc-signgame=hkrpg",
+            "喵喵签到现在会同时尝试原神和崩铁，缺少其中一个账号时只回复已成功签到的游戏段落",
+            "登录信息会保存和展示崩铁角色，支持仅绑定崩铁角色的 Cookie",
+        ],
+    },
     {
         "version": "0.14.5",
         "date": "2026-04-25",
