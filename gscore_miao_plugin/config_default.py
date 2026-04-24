@@ -151,8 +151,8 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "PanelRenderMode": GsStrConfig(
         "面板渲染模式",
-        "当前先支持文本摘要，后续迁移 miao 面板图渲染",
-        "text",
+        "面板输出模式：text 为文本摘要，image 为图片卡片",
+        "image",
         options=["text", "image"],
     ),
     "AllowGuestUse": GsBoolConfig(

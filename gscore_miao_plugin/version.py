@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.5.1"
+PLUGIN_VERSION = "0.6.0"
 
 CHANGELOGS = [
+    {
+        "version": "0.6.0",
+        "date": "2026-04-25",
+        "items": [
+            "迁移 miao-plugin 风格角色面板图片模板",
+            "PanelRenderMode=image 时输出图片卡片，失败自动回退文本摘要",
+            "面板图支持展示等级、命座、天赋、武器、圣遗物、双暴与充能",
+        ],
+    },
     {
         "version": "0.5.1",
         "date": "2026-04-25",

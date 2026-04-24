@@ -2,6 +2,15 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.6.0] - 2026-04-25
+
+### Added
+- 新增 miao-plugin 风格角色面板图片模板。
+- `PanelRenderMode=image` 时输出图片卡片，并兼容 `#喵喵设置面板图 <开启|关闭>`。
+
+### Changed
+- 图片渲染失败时自动回退文本摘要，便于排查数据源或字体问题。
+
 ## [0.5.1] - 2026-04-25
 
 ### Added

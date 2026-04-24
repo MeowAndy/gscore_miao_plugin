@@ -5,6 +5,7 @@ from gsuid_core.sv import SV
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
 from ..help_data import HELP_GROUPS
+from ..panel_renderer import render_panel_image
 from ..panel_service import query_panel, render_panel_text
 from ..settings import merge_user_cfg
 from ..store import get_user_cfg
@@ -73,5 +74,13 @@ async def send_panel(bot: Bot, ev: Event):
             f"失败原因：\n{detail}\n\n"
                 "请在网页控制台配置 Miao/Enka/米游社等数据源，或使用：喵喵设置面板服务 auto"
         )
+
+    render_mode = str(MiaoConfig.get_config("PanelRenderMode").data or "text")
+    use_image = render_mode == "image" and bool(user_cfg.get("custom_splash", True))
+    if use_image:
+        try:
+            return await bot.send(await render_panel_image(result))
+        except Exception as e:
+            return await bot.send(f"图片面板渲染失败，已回退文本摘要：{e}\n\n{render_panel_text(result)}")
 
     await bot.send(render_panel_text(result))
