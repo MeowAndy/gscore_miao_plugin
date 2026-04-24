@@ -412,7 +412,7 @@ def _draw_character_card(draw: ImageDraw.ImageDraw, char: Dict[str, Any], index:
     draw.rounded_rectangle((x + 18, y + 18, x + 82, y + 82), radius=20, fill=accent)
     _text(draw, (x + 38, y + 32), str(index), (35, 28, 18), FONT_CARD_TITLE)
 
-    avatar_name = char.get("name") or char.get("avatar_name") or f"角色ID {char.get('avatar_id') or '?'}"
+    avatar_name = _char_name(char)
     _text(draw, (x + 96, y + 18), avatar_name, (248, 244, 232), FONT_CARD_TITLE)
     cons = char.get("constellation")
     level = _safe(char.get("level"), "?")
@@ -429,7 +429,7 @@ def _draw_character_card(draw: ImageDraw.ImageDraw, char: Dict[str, Any], index:
     weapon_name = "未知武器"
     weapon_level = "?"
     if isinstance(weapon, dict):
-        weapon_name = _display_name(weapon.get("name"), "未知武器")
+        weapon_name = _weapon_name(weapon)
         weapon_level = _safe(weapon.get("level"), "?")
 
     props = char.get("fight_props") or {}
