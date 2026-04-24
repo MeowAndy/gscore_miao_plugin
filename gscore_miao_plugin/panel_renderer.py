@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 from gsuid_core.utils.image.convert import convert_img
 from PIL import Image, ImageDraw, ImageFont
 
+from .config import MiaoConfig
 from .panel_models import PanelResult
 
 Color = Tuple[int, int, int]
@@ -107,6 +110,19 @@ CHARACTER_ID_NAMES: Dict[int, str] = {
 
 ARTIFACT_SLOT_ICONS = ["花", "羽", "沙", "杯", "冠"]
 
+ARTIFACT_SLOT_INDEX = {
+    "EQUIP_BRACER": 1,
+    "EQUIP_NECKLACE": 2,
+    "EQUIP_SHOES": 3,
+    "EQUIP_RING": 4,
+    "EQUIP_DRESS": 5,
+    "生之花": 1,
+    "死之羽": 2,
+    "时之沙": 3,
+    "空之杯": 4,
+    "理之冠": 5,
+}
+
 PROP_NAME_MAP: Dict[str, str] = {
     "FIGHT_PROP_HP": "生命值",
     "FIGHT_PROP_ATTACK": "攻击力",
@@ -155,6 +171,64 @@ FONT_TINY = _font(14)
 
 def _text(draw: ImageDraw.ImageDraw, xy: Tuple[int, int], text: Any, fill: Color, font: ImageFont.ImageFont) -> None:
     draw.text(xy, str(text), fill=fill, font=font)
+
+
+def _plugin_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _miao_root() -> Path | None:
+    configured = str(MiaoConfig.get_config("MiaoPluginResourcePath").data or "").strip()
+    candidates = []
+    if configured:
+        candidates.append(Path(configured))
+    candidates.extend([
+        _plugin_root().parent / "miao-plugin",
+        Path("E:/gsuid_core/gsuid_core/plugins/miao-plugin"),
+    ])
+    for path in candidates:
+        if (path / "resources").exists():
+            return path
+    return None
+
+
+def _resource_path(*parts: str) -> Path | None:
+    root = _miao_root()
+    if not root:
+        return None
+    path = root / "resources" / Path(*parts)
+    return path if path.exists() else None
+
+
+def _open_image(path: Path | None, size: Tuple[int, int] | None = None, contain: bool = True) -> Image.Image | None:
+    if not path or not path.exists():
+        return None
+    try:
+        img = Image.open(path).convert("RGBA")
+        if size:
+            if contain:
+                img.thumbnail(size, Image.Resampling.LANCZOS)
+                canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+                canvas.alpha_composite(img, ((size[0] - img.width) // 2, (size[1] - img.height) // 2))
+                return canvas
+            return img.resize(size, Image.Resampling.LANCZOS)
+        return img
+    except Exception:
+        return None
+
+
+def _paste(img: Image.Image, overlay: Image.Image | None, xy: Tuple[int, int]) -> None:
+    if overlay:
+        img.alpha_composite(overlay, xy)
+
+
+def _load_json(path: Path | None) -> Dict[str, Any]:
+    if not path or not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 def _rounded(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], fill: Color, outline: Color | None = None) -> None:
@@ -278,6 +352,81 @@ def _char_name(char: Dict[str, Any]) -> str:
     return mapped or "未知角色"
 
 
+def _char_meta(name: str) -> Dict[str, Any]:
+    return _load_json(_resource_path("meta-gs", "character", name, "data.json"))
+
+
+def _char_image(name: str, kind: str = "splash") -> Path | None:
+    for file in (f"{kind}.webp", f"{kind}0.webp", f"{kind}.png"):
+        path = _resource_path("meta-gs", "character", name, "imgs", file)
+        if path:
+            return path
+    return None
+
+
+def _find_named_resource(base: str, name: str, filename: str) -> Path | None:
+    if not name or name.isdigit():
+        return None
+    root = _miao_root()
+    if not root:
+        return None
+    target = str(name).strip()
+    root_dir = root / "resources" / Path(base)
+    if not root_dir.exists():
+        return None
+    direct = root_dir / target / filename
+    if direct.exists():
+        return direct
+    for path in root_dir.rglob(filename):
+        if path.parent.name == target:
+            return path
+    return None
+
+
+def _weapon_icon(name: str) -> Path | None:
+    return _find_named_resource("meta-gs/weapon", name, "icon.webp")
+
+
+def _artifact_set_name(rel: Dict[str, Any]) -> str:
+    set_name = _display_name(rel.get("set_name"), "")
+    if set_name:
+        return set_name
+    name = _display_name(rel.get("name"), "")
+    data = _load_json(_resource_path("meta-gs", "artifact", "data.json"))
+    for item in data.values():
+        if not isinstance(item, dict):
+            continue
+        idxs = item.get("idxs") or {}
+        if any(isinstance(x, dict) and x.get("name") == name for x in idxs.values()):
+            return str(item.get("name") or "")
+    return ""
+
+
+def _artifact_pos_index(rel: Dict[str, Any], fallback_idx: int) -> int:
+    pos = rel.get("pos")
+    if pos in ARTIFACT_SLOT_INDEX:
+        return ARTIFACT_SLOT_INDEX[pos]
+    try:
+        num = int(pos)
+        if 1 <= num <= 5:
+            return num
+    except (TypeError, ValueError):
+        pass
+    return fallback_idx + 1
+
+
+def _artifact_icon(rel: Dict[str, Any], fallback_idx: int) -> Path | None:
+    set_name = _artifact_set_name(rel)
+    if not set_name:
+        return None
+    idx = _artifact_pos_index(rel, fallback_idx)
+    return _resource_path("meta-gs", "artifact", "imgs", set_name, f"{idx}.webp")
+
+
+def _fit_text(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: max(limit - 1, 1)] + "…"
+
+
 def _display_name(value: Any, fallback: str) -> str:
     text = str(value or "").strip()
     if not text or text.isdigit():
@@ -334,7 +483,7 @@ def _element_color(name: str) -> Color:
     return (95, 113, 150)
 
 
-def _draw_miao_header(draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict[str, Any], width: int) -> None:
+def _draw_miao_header(img: Image.Image, draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict[str, Any], width: int) -> None:
     name = _char_name(char)
     elem = _element_color(name)
     draw.rectangle((0, 0, width, 520), fill=(34, 34, 38))
@@ -343,12 +492,16 @@ def _draw_miao_header(draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict
     draw.ellipse((260, -260, 900, 420), fill=(255, 255, 255, 22))
     draw.polygon([(0, 500), (width, 410), (width, 560), (0, 560)], fill=(22, 23, 27))
 
-    # 大立绘占位：没有原版素材时，用剪影与角色首字模拟 miao-plugin 的大图区域。
-    draw.ellipse((112, 54, 488, 430), fill=(255, 255, 255, 35), outline=(255, 255, 255, 80), width=3)
-    draw.ellipse((190, 88, 410, 308), fill=(255, 255, 255, 48))
-    draw.rounded_rectangle((154, 278, 446, 572), radius=145, fill=(255, 255, 255, 42))
-    first = name[:1] if name else "?"
-    _text(draw, (262, 165), first, (255, 246, 220), _font(120, True))
+    splash = _open_image(_char_image(name, "splash"), (760, 520), contain=True)
+    if splash:
+        _paste(img, splash, (-80, 8))
+        draw.rectangle((0, 0, width, 520), fill=(0, 0, 0, 45))
+    else:
+        draw.ellipse((112, 54, 488, 430), fill=(255, 255, 255, 35), outline=(255, 255, 255, 80), width=3)
+        draw.ellipse((190, 88, 410, 308), fill=(255, 255, 255, 48))
+        draw.rounded_rectangle((154, 278, 446, 572), radius=145, fill=(255, 255, 255, 42))
+        first = name[:1] if name else "?"
+        _text(draw, (262, 165), first, (255, 246, 220), _font(120, True))
 
     _rounded_r(draw, (18, 22, 160, 54), 10, (0, 0, 0, 90))
     _text(draw, (30, 27), f"UID {result.uid}", (235, 230, 216), FONT_TINY)
@@ -357,10 +510,11 @@ def _draw_miao_header(draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict
     _text(draw, (width - 158, 27), src[:12], (235, 230, 216), FONT_TINY)
 
 
-def _draw_basic_panel(draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict[str, Any]) -> int:
+def _draw_basic_panel(img: Image.Image, draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict[str, Any]) -> int:
     x, y, w, h = 25, 392, 550, 178
     _rounded_r(draw, (x, y, x + w, y + h), 14, (31, 30, 34), (221, 191, 135), 2)
     name = _char_name(char)
+    meta = _char_meta(name)
     cons = char.get("constellation")
     level = _safe(char.get("level"), "?")
     _text(draw, (x + 20, y + 16), name, (245, 228, 183), FONT_TITLE)
@@ -376,7 +530,19 @@ def _draw_basic_panel(draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict
         cx = x + 28 + idx * 82
         cy = y + 113
         draw.ellipse((cx, cy, cx + 52, cy + 52), fill=(42, 43, 48), outline=(214, 183, 112), width=2)
-        _text(draw, (cx + 19, cy + 13), lv, (255, 245, 220), FONT_TEXT)
+        icon_key = ["a", "e", "q"][idx]
+        talent_ids = meta.get("talentId") or {}
+        talent_file = "atk-sword.webp" if icon_key == "a" else f"talent-{icon_key}.webp"
+        if icon_key == "a":
+            icon_path = _resource_path("common", "item", talent_file)
+        else:
+            icon_path = _resource_path("meta-gs", "character", name, "icons", talent_file)
+        icon = _open_image(icon_path, (34, 34), contain=True)
+        if icon:
+            _paste(img, icon, (cx + 9, cy + 8))
+        else:
+            _text(draw, (cx + 19, cy + 13), lv, (255, 245, 220), FONT_TEXT)
+        _text(draw, (cx + 19, cy + 34), lv, (255, 245, 220), FONT_TINY)
         _text(draw, (cx + 8, cy + 56), label, (202, 195, 180), FONT_TINY)
 
     for idx in range(6):
@@ -421,18 +587,23 @@ def _draw_attrs(draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
     return y + 4 * row_h + 16
 
 
-def _draw_weapon(draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
+def _draw_weapon(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
     weapon = char.get("weapon") or {}
     if not isinstance(weapon, dict):
         weapon = {}
     rarity = int(weapon.get("rarity") or 5)
     y = _draw_section_title(draw, y, "武器")
     _rounded_r(draw, (25, y, 575, y + 112), 12, (38, 37, 42), (92, 81, 62), 1)
-    draw.rounded_rectangle((42, y + 18, 118, y + 94), radius=12, fill=_star_color(rarity))
-    _text(draw, (66, y + 40), "武", (255, 247, 230), FONT_CARD_TITLE)
     name = _display_name(weapon.get("name"), "未知武器")
-    _text(draw, (134, y + 18), name, (245, 228, 183), FONT_CARD_TITLE)
-    _text(draw, (136, y + 58), f"Lv.{_safe(weapon.get('level'), '?')}  {'★' * min(rarity, 5)}", (226, 226, 226), FONT_SMALL)
+    draw.rounded_rectangle((42, y + 18, 118, y + 94), radius=12, fill=_star_color(rarity))
+    icon = _open_image(_weapon_icon(name), (72, 72), contain=True)
+    if icon:
+        _paste(img, icon, (44, y + 20))
+    else:
+        _text(draw, (66, y + 40), "武", (255, 247, 230), FONT_CARD_TITLE)
+    refine = weapon.get("refine") or 1
+    _text(draw, (134, y + 18), _fit_text(name, 13), (245, 228, 183), FONT_CARD_TITLE)
+    _text(draw, (136, y + 58), f"精{_safe(refine, '1')}  Lv.{_safe(weapon.get('level'), '?')}  {'★' * min(rarity, 5)}", (226, 226, 226), FONT_SMALL)
     return y + 128
 
 
@@ -440,7 +611,7 @@ def _reliq_label(index: int) -> str:
     return ["生之花", "死之羽", "时之沙", "空之杯", "理之冠"][index] if index < 5 else "圣遗物"
 
 
-def _draw_artifacts(draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
+def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
     reliqs = [r for r in (char.get("reliquaries") or []) if isinstance(r, dict)][:5]
     y = _draw_section_title(draw, y, "圣遗物", f"{len(reliqs)}/5")
     card_w, card_h = 176, 128
@@ -454,21 +625,25 @@ def _draw_artifacts(draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> 
         rarity = int(rel.get("rarity") or 5)
         _rounded_r(draw, (x, yy, x + card_w, yy + card_h), 12, (42, 39, 42), _star_color(rarity), 1)
         draw.rounded_rectangle((x + 12, yy + 12, x + 58, yy + 58), radius=10, fill=_star_color(rarity))
-        _text(draw, (x + 24, yy + 23), ARTIFACT_SLOT_ICONS[idx], (255, 247, 230), FONT_SMALL)
+        icon = _open_image(_artifact_icon(rel, idx), (46, 46), contain=True)
+        if icon:
+            _paste(img, icon, (x + 12, yy + 12))
+        else:
+            _text(draw, (x + 24, yy + 23), ARTIFACT_SLOT_ICONS[idx], (255, 247, 230), FONT_SMALL)
         title = _display_name(rel.get("name"), _reliq_label(idx))
-        _text(draw, (x + 70, yy + 14), title[:6], (245, 228, 183), FONT_SMALL)
+        _text(draw, (x + 70, yy + 14), _fit_text(title, 6), (245, 228, 183), FONT_SMALL)
         main = _prop_name(rel.get("main_prop") or rel.get("main"))
         _text(draw, (x + 14, yy + 68), main, (210, 210, 210), FONT_TINY)
         _text(draw, (x + 14, yy + 94), f"+{level}  {'★' * min(rarity, 5)}", (144, 232, 74), FONT_TINY)
     return y + 292
 
 
-def _draw_miao_profile(draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict[str, Any], width: int, height: int) -> None:
-    _draw_miao_header(draw, result, char, width)
-    y = _draw_basic_panel(draw, result, char)
+def _draw_miao_profile(img: Image.Image, draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict[str, Any], width: int, height: int) -> None:
+    _draw_miao_header(img, draw, result, char, width)
+    y = _draw_basic_panel(img, draw, result, char)
     y = _draw_attrs(draw, y, char)
-    y = _draw_weapon(draw, y, char)
-    y = _draw_artifacts(draw, y, char)
+    y = _draw_weapon(img, draw, y, char)
+    y = _draw_artifacts(img, draw, y, char)
     _text(draw, (30, height - 38), "Created by gscore_miao-plugin · layout inspired by miao-plugin", (150, 145, 132), FONT_TINY)
 
 
@@ -479,7 +654,7 @@ async def render_panel_image(result: PanelResult) -> bytes:
         height = 1180
         img = Image.new("RGBA", (width, height), (22, 23, 27, 255))
         draw = ImageDraw.Draw(img)
-        _draw_miao_profile(draw, result, characters[0], width, height)
+        _draw_miao_profile(img, draw, result, characters[0], width, height)
         return await convert_img(img)
 
     card_count = max(len(characters), 1)
@@ -530,9 +705,17 @@ async def render_single_panel_image(result: PanelResult, character_query: str = 
     characters = list(_iter_cards(result.characters or []))
     if character_query:
         q = character_query.lower()
+        resolved = q
+        try:
+            from .alias_data import resolve_alias
+
+            resolved = (resolve_alias(character_query) or character_query).lower()
+        except Exception:
+            pass
         filtered = [
             c for c in characters
             if q in str(c.get("name") or c.get("avatar_name") or c.get("avatar_id") or "").lower()
+            or resolved in str(c.get("name") or c.get("avatar_name") or c.get("avatar_id") or "").lower()
         ]
         if filtered:
             characters = filtered

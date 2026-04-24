@@ -79,7 +79,10 @@ async def send_miao_style_profile(bot: Bot, ev: Event):
 
     if not MiaoConfig.get_config("EnablePanelQuery").data:
         return
-    return await bot.send(await render_single_panel_image(result, name))
+    try:
+        return await bot.send(await render_single_panel_image(result, name))
+    except Exception as e:
+        return await bot.send(f"图片面板渲染失败，已回退文本摘要：{e}\n\n{render_panel_text(result)}")
 
 
 @sv_feature.on_regex(r"^(圣遗物评分|遗物评分|圣遗物)\s*(?P<uid>\d{9,10})?\s*(?P<name>.*)$", block=True)
@@ -127,7 +130,10 @@ async def send_single_panel(bot: Bot, ev: Event):
     name = _resolve_name((ev.regex_dict or {}).get("name") or "")
     result = await _query_user_panel(bot, ev, uid)
     if result:
-        await bot.send(await render_single_panel_image(result, name))
+        try:
+            await bot.send(await render_single_panel_image(result, name))
+        except Exception as e:
+            await bot.send(f"图片面板渲染失败，已回退文本摘要：{e}\n\n{render_panel_text(result)}")
 
 
 @sv_feature.on_regex(r"^(面板列表|面板角色列表|角色列表)\s*(?P<uid>\d{9,10})?$", block=True)

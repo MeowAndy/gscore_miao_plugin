@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.9.0"
+PLUGIN_VERSION = "0.10.0"
 
 CHANGELOGS = [
+    {
+        "version": "0.10.0",
+        "date": "2026-04-25",
+        "items": [
+            "研究并接入 Yunzai miao-plugin 的 profile-detail 渲染资源链路：优先复用本地 miao-plugin 角色立绘、武器图标和圣遗物图标",
+            "补齐 Miao/米游社/Mgg/Hutao 等 avatars 到统一 characters 模型转换，避免非 Enka 数据源无法出图",
+            "单角色自然命令增加图片渲染异常回退，确保不会因为素材缺失导致无回复",
+        ],
+    },
     {
         "version": "0.9.0",
         "date": "2026-04-25",

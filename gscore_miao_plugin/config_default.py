@@ -170,6 +170,11 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "image",
         options=["text", "image"],
     ),
+    "MiaoPluginResourcePath": GsStrConfig(
+        "miao-plugin资源目录",
+        "本地 Yunzai miao-plugin 目录；填好后面板会直接复用其角色立绘、武器、圣遗物素材",
+        "E:/gsuid_core/gsuid_core/plugins/miao-plugin",
+    ),
     "AllowGuestUse": GsBoolConfig(
         "允许游客使用",
         "关闭后，仅管理员可调用本插件命令",

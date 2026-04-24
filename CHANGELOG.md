@@ -2,6 +2,20 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.10.0] - 2026-04-25
+
+### Added
+- 新增 WebUI 配置 `MiaoPluginResourcePath`，可指向本地 Yunzai `miao-plugin` 目录并复用其 `resources` 素材。
+- 单角色面板图优先读取原版角色立绘、武器图标、圣遗物图标，显著改善“无图/占位图”问题。
+- Miao、米游社、MiniGG、Hutao 数据源返回的 `avatars` 会统一转换为 `characters`，让图片、圣遗物、伤害功能可复用同一模型。
+
+### Fixed
+- 修复单角色面板图渲染失败可能导致命令看起来“没反应”的问题，失败时自动回退文本摘要。
+- 修复非 Enka 数据源缺少 `characters` 时无法进入详情图渲染的问题。
+
+### Changed
+- 面板渲染继续贴近 Yunzai `miao-plugin` 的 `profile-detail`，当前为 Pillow 复刻 + 原版素材复用；后续再迁移 HTML/CSS 截图层。
+
 ## [0.9.0] - 2026-04-25
 
 ### Added

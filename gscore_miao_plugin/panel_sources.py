@@ -77,6 +77,132 @@ def _level_from(data: Dict[str, Any]) -> Optional[int]:
     return level if isinstance(level, int) else None
 
 
+def _to_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _name_from_avatar(avatar: Dict[str, Any]) -> str:
+    for key in ("name", "avatar_name", "avatarName"):
+        value = avatar.get(key)
+        if value:
+            return str(value)
+    return str(((avatar.get("character") or {}).get("name")) or "")
+
+
+def _normalize_prop_name(name: Any) -> str:
+    text = str(name or "").strip()
+    mapping = {
+        "max_hp": "生命值",
+        "hp": "生命值",
+        "attack": "攻击力",
+        "atk": "攻击力",
+        "defense": "防御力",
+        "def": "防御力",
+        "element_mastery": "元素精通",
+        "mastery": "元素精通",
+        "crit_rate": "暴击率",
+        "critRate": "暴击率",
+        "crit_dmg": "暴击伤害",
+        "critDamage": "暴击伤害",
+        "energy_recharge": "充能效率",
+        "recharge": "充能效率",
+    }
+    return mapping.get(text, text)
+
+
+def _props_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
+    props: Dict[str, Any] = {}
+    source = avatar.get("fight_props") or avatar.get("fightProps") or avatar.get("attr") or avatar.get("attrs") or {}
+    if isinstance(source, dict):
+        for key, value in source.items():
+            if isinstance(value, dict):
+                value = value.get("value") or value.get("val") or value.get("total")
+            props[_normalize_prop_name(key)] = value
+    for src_key, dst_key in {
+        "max_hp": "生命值",
+        "hp": "生命值",
+        "attack": "攻击力",
+        "atk": "攻击力",
+        "defense": "防御力",
+        "def": "防御力",
+        "element_mastery": "元素精通",
+        "mastery": "元素精通",
+        "crit_rate": "暴击率",
+        "critRate": "暴击率",
+        "crit_dmg": "暴击伤害",
+        "critDamage": "暴击伤害",
+        "energy_recharge": "充能效率",
+        "recharge": "充能效率",
+    }.items():
+        if src_key in avatar and dst_key not in props:
+            props[dst_key] = avatar[src_key]
+    return props
+
+
+def _weapon_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
+    weapon = avatar.get("weapon") or {}
+    if not isinstance(weapon, dict):
+        return {}
+    return {
+        "name": weapon.get("name") or weapon.get("weapon_name") or weapon.get("weaponName"),
+        "level": weapon.get("level") or weapon.get("lv"),
+        "promote_level": weapon.get("promote") or weapon.get("promote_level"),
+        "refine": weapon.get("affix") or weapon.get("refine") or weapon.get("rank") or weapon.get("affix_level"),
+        "rarity": weapon.get("star") or weapon.get("rarity") or weapon.get("rankLevel"),
+    }
+
+
+def _reliquaries_from_avatar(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
+    raw = avatar.get("reliquaries") or avatar.get("artifacts") or avatar.get("artis") or avatar.get("relics") or []
+    if isinstance(raw, dict):
+        iterable = raw.values()
+    elif isinstance(raw, list):
+        iterable = raw
+    else:
+        iterable = []
+    reliqs: List[Dict[str, Any]] = []
+    for item in iterable:
+        if not isinstance(item, dict):
+            continue
+        reliqs.append(
+            {
+                "name": item.get("name"),
+                "set_name": item.get("set") or item.get("set_name") or item.get("setName"),
+                "pos": item.get("pos") or item.get("idx") or item.get("equipType"),
+                "level": item.get("level") or item.get("lv"),
+                "rarity": item.get("star") or item.get("rarity"),
+                "main_prop": item.get("main_prop") or item.get("mainId") or item.get("main") or item.get("mainPropId"),
+                "sub_props": item.get("sub_props") or item.get("attrs") or item.get("attrIds") or item.get("appendPropIdList") or [],
+            }
+        )
+    return reliqs
+
+
+def _characters_from_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    characters: List[Dict[str, Any]] = []
+    for avatar in avatars:
+        if not isinstance(avatar, dict):
+            continue
+        characters.append(
+            {
+                "avatar_id": avatar.get("id") or avatar.get("avatar_id") or avatar.get("avatarId"),
+                "name": _name_from_avatar(avatar),
+                "level": avatar.get("level") or avatar.get("lv"),
+                "promote_level": avatar.get("promote") or avatar.get("promote_level"),
+                "constellation": avatar.get("cons") or avatar.get("constellation") or avatar.get("actived_constellation_num"),
+                "friendship": avatar.get("fetter") or avatar.get("friendship"),
+                "skill_levels": avatar.get("skill_levels") or avatar.get("talent") or avatar.get("talents") or [],
+                "weapon": _weapon_from_avatar(avatar),
+                "reliquaries": _reliquaries_from_avatar(avatar),
+                "fight_props": _props_from_avatar(avatar),
+            }
+        )
+    return characters
+
+
 def _signature_from(data: Dict[str, Any]) -> str:
     return str(_dig(data, "signature", "playerInfo.signature", "data.signature", "data.playerInfo.signature") or "")
 
@@ -175,11 +301,12 @@ def _enka_weapon(equip_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         if equip.get("weapon"):
             flat = equip.get("flat") or {}
             weapon = equip.get("weapon") or {}
+            refine_values = list((weapon.get("affixMap") or {}).values())
             return {
                 "name": flat.get("nameTextMapHash") or str(weapon.get("itemId") or "未知武器"),
                 "level": weapon.get("level"),
                 "promote_level": weapon.get("promoteLevel"),
-                "refine": (weapon.get("affixMap") or {}).copy(),
+                "refine": (_to_int(refine_values[0]) + 1) if refine_values else 1,
                 "rarity": flat.get("rankLevel"),
             }
     return {}
@@ -195,6 +322,7 @@ def _enka_reliquaries(equip_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         reliquaries.append(
             {
                 "name": flat.get("nameTextMapHash") or str(equip.get("itemId") or "未知圣遗物"),
+                "set_name": flat.get("setNameTextMapHash"),
                 "pos": flat.get("equipType"),
                 "level": reliq.get("level"),
                 "rarity": flat.get("rankLevel"),
@@ -319,6 +447,7 @@ class MiaoPanelSource(BasePanelSource):
             level=_level_from(data),
             signature=_signature_from(data),
             avatars=_avatars_from(data),
+            characters=_characters_from_avatars(_avatars_from(data)),
         )
         set_cached_panel(self.source_name, uid, result)
         return result
@@ -388,6 +517,7 @@ class MysPanelSource(BasePanelSource):
             level=(data.get("role") or {}).get("level"),
             signature="",
             avatars=data.get("avatars") or [],
+            characters=_characters_from_avatars(data.get("avatars") or []),
         )
         set_cached_panel(self.source_name, uid, result)
         return result
@@ -428,6 +558,7 @@ class SimpleHttpPanelSource(BasePanelSource):
             level=_level_from(data),
             signature=_signature_from(data),
             avatars=_avatars_from(data),
+            characters=_characters_from_avatars(_avatars_from(data)),
         )
         set_cached_panel(self.source_name, uid, result)
         return result
