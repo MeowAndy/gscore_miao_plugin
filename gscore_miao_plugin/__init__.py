@@ -2,14 +2,17 @@
 
 from gsuid_core.sv import Plugins
 
+from .config import MiaoConfig
 from .const import PLUGIN_NAME
 from .startup import ensure_image_panel_defaults
 
 ensure_image_panel_defaults()
 
+_prefix = str(MiaoConfig.get_config("CommandPrefix").data or "喵喵").strip() or "喵喵"
+
 Plugins(
     name=PLUGIN_NAME,
-    force_prefix=["喵喵", "miao"],
+    force_prefix=[_prefix, "miao"],
     allow_empty_prefix=False,
 )
 

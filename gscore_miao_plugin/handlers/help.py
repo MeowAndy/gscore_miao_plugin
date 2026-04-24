@@ -5,13 +5,33 @@ from gsuid_core.sv import SV
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
 from ..help_data import HELP_GROUPS
-from ..panel_renderer import render_panel_image
+from ..panel_renderer import render_help_image, render_panel_image
 from ..panel_service import query_panel, render_panel_text
 from ..settings import merge_user_cfg
 from ..store import get_user_cfg
 from ..version import PLUGIN_VERSION
 
 sv_help = SV("GsCoreMiao帮助")
+
+
+def _cmd_prefix() -> str:
+    return str(MiaoConfig.get_config("CommandPrefix").data or "喵喵").strip() or "喵喵"
+
+
+def _help_groups_for_display(setting_export: bool, setting_reset: bool):
+    prefix = _cmd_prefix()
+    groups = []
+    for group in HELP_GROUPS:
+        items = []
+        for item in group["items"]:
+            cmd = item["cmd"].replace("{prefix}", prefix)
+            if (not setting_export) and ("设置导出" in cmd):
+                continue
+            if (not setting_reset) and ("设置重置" in cmd):
+                continue
+            items.append({"cmd": cmd, "desc": item["desc"]})
+        groups.append({"group": group["group"], "items": items})
+    return groups
 
 
 @sv_help.on_fullmatch(("帮助", "菜单"), block=True)
@@ -25,17 +45,22 @@ async def send_help(bot: Bot, ev: Event):
     subtitle = MiaoConfig.get_config("HelpSubTitle").data
     setting_export = MiaoConfig.get_config("EnableSettingExport").data
     setting_reset = MiaoConfig.get_config("EnableSettingReset").data
+    groups = _help_groups_for_display(bool(setting_export), bool(setting_reset))
 
-    lines = [f"{title}", f"{subtitle}", ""]
+    if str(MiaoConfig.get_config("HelpRenderMode").data or "image") == "image":
+        try:
+            return await bot.send(await render_help_image(str(title), str(subtitle), groups, _cmd_prefix()))
+        except Exception as e:
+            lines = [f"帮助图片渲染失败，已回退文本：{e}", ""]
+    else:
+        lines = []
+
+    lines.extend([f"{title}", f"{subtitle}", ""])
     idx = 1
-    for group in HELP_GROUPS:
+    for group in groups:
         lines.append(f"【{group['group']}】")
         for item in group["items"]:
             cmd = item["cmd"]
-            if (not setting_export) and ("设置导出" in cmd):
-                continue
-            if (not setting_reset) and ("设置重置" in cmd):
-                continue
             lines.append(f"{idx}) {cmd} - {item['desc']}")
             idx += 1
         lines.append("")

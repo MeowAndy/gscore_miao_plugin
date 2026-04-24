@@ -23,7 +23,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "CommandPrefix": GsStrConfig(
         "命令显示前缀",
-        "帮助与设置文本中展示的命令前缀；实际响应前缀仍由插件 force_prefix 控制",
+        "插件中文命令前缀；帮助与设置文本会同步展示，修改后需重启 GsCore 生效",
         "喵喵",
     ),
     "HelpTitle": GsStrConfig(
@@ -35,6 +35,12 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "帮助副标题",
         "帮助页副标题",
         "Yunzai miao-plugin 的 GsCore 迁移版",
+    ),
+    "HelpRenderMode": GsStrConfig(
+        "帮助渲染模式",
+        "帮助输出模式：text 为文本，image 为图片卡片",
+        "image",
+        options=["text", "image"],
     ),
     "AllowedPanelServers": GsListStrConfig(
         "可选面板服务",

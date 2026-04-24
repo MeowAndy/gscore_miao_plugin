@@ -1,6 +1,16 @@
-PLUGIN_VERSION = "0.13.9"
+PLUGIN_VERSION = "0.14.0"
 
 CHANGELOGS = [
+    {
+        "version": "0.14.0",
+        "date": "2026-04-25",
+        "items": [
+            "帮助中的设置命令去掉 #喵喵，全部命令统一使用 WebUI 的 CommandPrefix 动态展示前缀",
+            "插件注册前缀会读取 CommandPrefix，修改 WebUI 配置后重启 GsCore 即可切换中文命令前缀",
+            "新增 HelpRenderMode WebUI 配置，默认以图片卡片模式输出喵喵帮助",
+            "新增首版帮助图片渲染，优先复用 miao-plugin 帮助背景素材，并参考 XutheringWavesUID 帮助卡片风格",
+        ],
+    },
     {
         "version": "0.13.9",
         "date": "2026-04-25",

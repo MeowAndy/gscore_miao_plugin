@@ -168,6 +168,10 @@ FONT_CARD_TITLE = _font(26, True)
 FONT_TEXT = _font(20)
 FONT_SMALL = _font(16)
 FONT_TINY = _font(14)
+FONT_HELP_TITLE = _font(48, True)
+FONT_HELP_GROUP = _font(28, True)
+FONT_HELP_CMD = _font(22, True)
+FONT_HELP_DESC = _font(16)
 
 
 def _text(draw: ImageDraw.ImageDraw, xy: Tuple[int, int], text: Any, fill: Color, font: ImageFont.ImageFont) -> None:
@@ -216,6 +220,31 @@ def _open_image(path: Path | None, size: Tuple[int, int] | None = None, contain:
         return img
     except Exception:
         return None
+
+
+def _cover_image(path: Path | None, size: Tuple[int, int]) -> Image.Image | None:
+    if not path or not path.exists():
+        return None
+    try:
+        img = Image.open(path).convert("RGBA")
+        scale = max(size[0] / img.width, size[1] / img.height)
+        resized = img.resize((int(img.width * scale), int(img.height * scale)), Image.Resampling.LANCZOS)
+        left = max((resized.width - size[0]) // 2, 0)
+        top = max((resized.height - size[1]) // 2, 0)
+        return resized.crop((left, top, left + size[0], top + size[1]))
+    except Exception:
+        return None
+
+
+def _help_bg_path() -> Path | None:
+    for path in [
+        _resource_path("help", "theme", "default", "bg.jpg"),
+        _resource_path("common", "theme", "bg-01.jpg"),
+        Path("e:/ceshi/XutheringWavesUID/WutheringWavesUID/wutheringwaves_help/texture2d/bg.jpg"),
+    ]:
+        if path and path.exists():
+            return path
+    return None
 
 
 def _paste(img: Image.Image, overlay: Image.Image | None, xy: Tuple[int, int]) -> None:
@@ -985,4 +1014,58 @@ async def render_artifact_list_image(result: PanelResult) -> bytes:
         _text(draw, (650, y + 12), f"{total:.1f} [{artifact_rank(total)}]", (144, 232, 74), FONT_TEXT)
         _text(draw, (120, y + 38), _fit_text(title, 28), (160, 171, 190), FONT_TINY)
     _text(draw, (54, height - 42), "评分权重读取本地 miao-plugin resources/meta-gs/artifact/artis-mark.js", (145, 158, 186), FONT_TINY)
+    return await convert_img(img)
+
+
+async def render_help_image(title: str, subtitle: str, groups: List[Dict[str, Any]], prefix: str) -> bytes:
+    width = 1200
+    cols = 2
+    item_h = 86
+    group_gap = 34
+    content_h = 0
+    for group in groups:
+        count = len(group.get("items") or [])
+        rows = (count + cols - 1) // cols
+        content_h += 64 + rows * item_h + group_gap
+    height = max(900, 230 + content_h + 72)
+    img = _gradient_bg(width, height).convert("RGBA")
+
+    bg = _cover_image(_help_bg_path(), (width, height))
+    if bg:
+        bg.putalpha(110)
+        img.alpha_composite(bg)
+    img.alpha_composite(Image.new("RGBA", (width, height), (10, 14, 24, 132)))
+
+    draw = ImageDraw.Draw(img)
+    draw.ellipse((width - 430, -250, width + 180, 360), fill=(231, 184, 99, 62))
+    draw.ellipse((-260, 120, 360, 740), fill=(88, 123, 190, 48))
+
+    _text(draw, (68, 54), title or "喵喵帮助", (255, 247, 222), FONT_HELP_TITLE)
+    _text(draw, (72, 120), subtitle or "Yunzai miao-plugin 的 GsCore 迁移版", (220, 228, 244), FONT_SUBTITLE)
+    _text(draw, (72, 158), f"当前命令前缀：{prefix} · 可在 WebUI 的 CommandPrefix 修改，重启后生效", (170, 182, 207), FONT_SMALL)
+
+    y = 220
+    card_w = 510
+    left_x = 70
+    right_x = 620
+    for group in groups:
+        items = list(group.get("items") or [])
+        if not items:
+            continue
+        _rounded_r(draw, (58, y - 10, width - 58, y + 44), 18, (36, 43, 66), (92, 109, 150), 1)
+        _text(draw, (84, y), f"✦ {group.get('group') or '命令'}", (255, 232, 174), FONT_HELP_GROUP)
+        y += 64
+        for idx, item in enumerate(items):
+            col = idx % cols
+            row = idx // cols
+            x = left_x if col == 0 else right_x
+            cy = y + row * item_h
+            _rounded_r(draw, (x, cy, x + card_w, cy + 66), 16, (28, 34, 54), (76, 91, 129), 1)
+            cmd = str(item.get("cmd") or "").replace("{prefix}", prefix)
+            desc = str(item.get("desc") or "")
+            _text(draw, (x + 22, cy + 12), _fit_text(cmd, 25), (248, 244, 232), FONT_HELP_CMD)
+            _text(draw, (x + 24, cy + 42), _fit_text(desc, 30), (185, 197, 220), FONT_HELP_DESC)
+        y += ((len(items) + cols - 1) // cols) * item_h + group_gap
+
+    _text(draw, (70, height - 48), "Created by gscore_miao-plugin · help card inspired by XutheringWavesUID & miao-plugin", (150, 163, 190), FONT_TINY)
     return await convert_img(img)
