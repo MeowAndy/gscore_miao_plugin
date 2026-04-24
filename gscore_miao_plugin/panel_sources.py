@@ -132,6 +132,15 @@ def _check_retcode(source: str, raw: Dict[str, Any]) -> None:
         raise PanelSourceError(source, f"接口返回 {retcode}: {msg}")
 
 
+def _http_error_message(source: str, exc: httpx.HTTPStatusError) -> str:
+    status = exc.response.status_code
+    if source == "enka" and status == 424:
+        return "Enka 暂时没有该 UID 的公开面板缓存，请先在游戏内展示角色，稍后重试，或切换到 auto/Miao/米游社数据源"
+    if source == "enka" and status == 404:
+        return "Enka 未找到该 UID，请确认 UID 正确且角色展柜已公开"
+    return f"HTTP {status}: {exc.response.reason_phrase}"
+
+
 def _enka_fight_props(props: Dict[str, Any]) -> Dict[str, Any]:
     def number(key: str, default: float = 0) -> float:
         value = props.get(key, default)
@@ -241,6 +250,8 @@ class EnkaPanelSource(BasePanelSource):
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
                 raw = _as_dict(resp.json())
+        except httpx.HTTPStatusError as e:
+            raise PanelSourceError(self.source_name, _http_error_message(self.source_name, e)) from e
         except Exception as e:
             raise PanelSourceError(self.source_name, f"Enka 请求失败：{e}") from e
 
@@ -292,6 +303,8 @@ class MiaoPanelSource(BasePanelSource):
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
                 raw = _as_dict(resp.json())
+        except httpx.HTTPStatusError as e:
+            raise PanelSourceError(self.source_name, _http_error_message(self.source_name, e)) from e
         except Exception as e:
             raise PanelSourceError(self.source_name, f"Miao 请求失败：{e}") from e
 
@@ -358,6 +371,8 @@ class MysPanelSource(BasePanelSource):
                     _check_retcode(self.source_name, detail_raw)
 
                 raw = {"index": index_raw, "detail": detail_raw}
+        except httpx.HTTPStatusError as e:
+            raise PanelSourceError(self.source_name, _http_error_message(self.source_name, e)) from e
         except Exception as e:
             raise PanelSourceError(self.source_name, f"米游社请求失败：{e}") from e
 
@@ -399,6 +414,8 @@ class SimpleHttpPanelSource(BasePanelSource):
                 resp = await client.get(url)
                 resp.raise_for_status()
                 raw = _as_dict(resp.json())
+        except httpx.HTTPStatusError as e:
+            raise PanelSourceError(self.source_name, _http_error_message(self.source_name, e)) from e
         except Exception as e:
             raise PanelSourceError(self.source_name, f"{self.source_name} 请求失败：{e}") from e
 
@@ -434,7 +451,13 @@ def get_source(name: str) -> BasePanelSource:
 def get_source_order(user_source: str) -> List[str]:
     allowed = set(MiaoConfig.get_config("AllowedPanelServers").data)
     if user_source and user_source != "auto":
-        return [user_source] if user_source in allowed else []
+        if user_source not in allowed:
+            return []
+        fallback = bool(MiaoConfig.get_config("EnablePanelFallback").data)
+        if not fallback:
+            return [user_source]
+        priority = [x for x in MiaoConfig.get_config("PanelSourcePriority").data if x in allowed]
+        return [user_source] + [x for x in priority if x != user_source]
 
     order = [x for x in MiaoConfig.get_config("PanelSourcePriority").data if x in allowed]
     return order or [x for x in ["miao", "enka", "mys"] if x in allowed]

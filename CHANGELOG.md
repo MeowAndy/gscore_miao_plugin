@@ -2,6 +2,13 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.8.3] - 2026-04-25
+
+### Fixed
+- 优化 Enka `424 Failed Dependency` / `404 Not Found` 错误提示，改为说明未缓存、展柜未公开或 UID 错误。
+- 显式选择 `enka` 时，如果开启数据源降级，会继续尝试 WebUI 中配置的 Miao/米游社等后备源。
+- 第三方 HTTP 错误统一改为更短的可读提示，避免直接返回长异常链接。
+
 ## [0.8.2] - 2026-04-25
 
 ### Fixed
