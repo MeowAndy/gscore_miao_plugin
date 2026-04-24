@@ -18,7 +18,7 @@ HELP_GROUPS: List[HelpGroup] = [
             {"cmd": "喵喵帮助 / 喵喵菜单", "desc": "查看插件帮助"},
             {"cmd": "喵喵版本", "desc": "查看插件版本"},
             {"cmd": "喵喵更新日志", "desc": "查看最近更新"},
-            {"cmd": "喵喵面板", "desc": "保留 miao-plugin 面板命令入口"},
+            {"cmd": "喵喵面板 <UID>", "desc": "查询角色面板数据（Miao/Enka/米游社等数据源）"},
         ],
     },
     {

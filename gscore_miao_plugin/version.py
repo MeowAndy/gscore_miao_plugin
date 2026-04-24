@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.3.1"
+PLUGIN_VERSION = "0.4.0"
 
 CHANGELOGS = [
+    {
+        "version": "0.4.0",
+        "date": "2026-04-24",
+        "items": [
+            "新增 Miao/Enka/米游社/Mgg/胡桃面板数据源配置项",
+            "新增面板数据查询客户端与 auto 降级逻辑",
+            "喵喵面板 <UID> 接入数据查询并输出文本摘要",
+        ],
+    },
     {
         "version": "0.3.1",
         "date": "2026-04-24",

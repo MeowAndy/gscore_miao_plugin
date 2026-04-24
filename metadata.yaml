@@ -1,4 +1,4 @@
 name: gscore_miao-plugin
-version: 0.3.1
+version: 0.4.0
 author: GitHub Copilot
-desc: miao-plugin 的 GsCore 迁移版（含 WebUI 配置、设置扩展、更新日志与权限）
+desc: miao-plugin 的 GsCore 迁移版（含 WebUI 配置、面板数据源、设置扩展、更新日志与权限）

@@ -2,7 +2,7 @@
 
 将 Yunzai `miao-plugin` 迁移为可在 GsCore 运行的简化插件。
 
-## 已移植能力（v0.3.1）
+## 已移植能力（v0.4.0）
 
 - 帮助：`喵喵帮助` / `喵喵菜单`
 - 版本：`喵喵版本`
@@ -17,7 +17,7 @@
   - `#喵喵设置导出`
   - `#喵喵设置重置`
 - 更新日志：`喵喵更新日志`
-- 面板入口：`喵喵面板`（已保留入口，数据源接入后可继续扩展）
+- 面板入口：`喵喵面板 <UID>`（已接入 Miao/Enka/米游社/Mgg/胡桃数据源骨架）
 - 权限控制：支持游客开关（关闭后仅管理员可用）
 - 状态页：注册 GsCore 插件状态统计
 - WebUI 配置项（GsCore 网页控制台）：
@@ -28,6 +28,21 @@
   - HelpSubTitle
   - AllowedPanelServers
   - DefaultPanelServer
+  - PanelSourcePriority
+  - PanelRequestTimeout
+  - EnablePanelQuery
+  - EnablePanelFallback
+  - MiaoApiBaseUrl
+  - MiaoApiToken
+  - EnkaApiBaseUrl
+  - EnkaLocale
+  - MysApiBaseUrl
+  - MysCookie
+  - MysDeviceId
+  - MggApiBaseUrl
+  - HutaoApiBaseUrl
+  - PanelCacheTTL
+  - PanelRenderMode
   - AllowGuestUse
   - RecentHistoryLimit
   - UpdateLogLimit
@@ -47,19 +62,24 @@
 
 将本目录放入 GsCore 插件目录，重启 GsCore 后即可加载：
 
-- 插件名：`GsCoreMiao`
+- 插件名：`gscore_miao-plugin`
 - 强制前缀：`喵喵` / `miao`
 - 配置文件：GsCore 资源目录下的 `GsCoreMiao/config.json`
 
 ## 说明
 
 原 `miao-plugin` 为 Yunzai 生态（Node.js）插件，和 GsCore（Python）运行时差异较大。
-当前版本为 **功能语义迁移（v0.3）**，重点迁移命令形态、配置管理、更新日志与基础权限控制能力。
-由于原仓库为 Node.js/Yunzai 生态，涉及截图渲染、面板查询、抽卡、角色资料等能力需要逐项改写为 Python/GsCore 异步实现；当前项目保留了扩展入口。
+当前版本为 **功能语义迁移（v0.4）**，重点迁移命令形态、配置管理、更新日志、基础权限控制与面板数据源骨架。
+由于原仓库为 Node.js/Yunzai 生态，涉及截图渲染、抽卡、角色资料等能力需要逐项改写为 Python/GsCore 异步实现；当前项目已先接入面板查询数据源框架，图片渲染模板会继续迁移。
 
 ## 更新日志（内置）
 
 完整变更记录见 `CHANGELOG.md`。
+
+- v0.4.0
+  - 新增 Miao/Enka/米游社/Mgg/胡桃面板数据源配置项
+  - 新增面板数据查询客户端、auto 优先级与失败降级
+  - `喵喵面板 <UID>` 输出面板文本摘要
 
 - v0.3.1
   - 修正 GsCore 强制前缀下的命令匹配方式

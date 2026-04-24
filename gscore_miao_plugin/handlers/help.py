@@ -5,6 +5,9 @@ from gsuid_core.sv import SV
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
 from ..help_data import HELP_GROUPS
+from ..panel_service import query_panel, render_panel_text
+from ..settings import merge_user_cfg
+from ..store import get_user_cfg
 from ..version import PLUGIN_VERSION
 
 sv_help = SV("GsCoreMiao帮助")
@@ -48,12 +51,27 @@ async def send_version(bot: Bot, ev: Event):
     await bot.send(f"gscore_miao-plugin v{PLUGIN_VERSION}")
 
 
-@sv_help.on_fullmatch(("面板", "角色面板", "角色卡片"), block=True)
-async def send_panel_notice(bot: Bot, ev: Event):
+@sv_help.on_regex(r"^(面板|角色面板|角色卡片)\s*(?P<uid>\d{9,10})?$", block=True)
+async def send_panel(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnablePanelQuery").data:
+        return
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
-    await bot.send(
-        "角色面板查询已保留命令入口。\n"
-        "GsCore 版当前完成设置、帮助、版本与基础权限迁移；"
-        "面板数据查询需接入米游社/Enka/Miao 等数据源后启用。"
-    )
+
+    uid = ((ev.regex_dict or {}).get("uid") or "").strip()
+    if not uid:
+        return await bot.send("请携带 UID，例如：喵喵面板 100000001")
+
+    user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
+    source = str(user_cfg.get("panel_server") or "auto")
+    result, errors = await query_panel(uid, source)
+    if result is None:
+        detail = "\n".join(errors[:5]) if errors else "无可用数据源"
+        return await bot.send(
+            "面板数据查询失败。\n"
+            f"当前服务：{source}\n"
+            f"失败原因：\n{detail}\n\n"
+                "请在网页控制台配置 Miao/Enka/米游社等数据源，或使用：喵喵设置面板服务 auto"
+        )
+
+    await bot.send(render_panel_text(result))

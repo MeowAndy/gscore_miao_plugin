@@ -2,6 +2,14 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.4.0] - 2026-04-24
+
+### Added
+- 新增 `喵喵面板 <UID>` 数据查询入口。
+- 新增 Miao、Enka、米游社、Mgg、胡桃数据源配置项。
+- 新增 auto 数据源优先级、失败降级、请求超时与缓存时间配置。
+- 新增面板文本摘要输出，为后续迁移 miao-plugin 图片渲染打基础。
+
 ## [0.3.1] - 2026-04-24
 
 ### Added
