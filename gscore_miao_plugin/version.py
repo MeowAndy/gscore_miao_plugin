@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.4.0"
+PLUGIN_VERSION = "0.5.0"
 
 CHANGELOGS = [
+    {
+        "version": "0.5.0",
+        "date": "2026-04-24",
+        "items": [
+            "对齐 Miao API profile/data 参数：uid、qq、token、version、game",
+            "新增米游社 index 与 character/list 请求流程及 DS 签名",
+            "对齐 Enka、MiniGG、Hutao 数据源默认地址与 User-Agent",
+        ],
+    },
     {
         "version": "0.4.0",
         "date": "2026-04-24",

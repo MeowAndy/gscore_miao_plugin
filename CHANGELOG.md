@@ -2,6 +2,17 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.5.0] - 2026-04-24
+
+### Added
+- 新增 Miao API `MiaoApiQQ`、`MiaoApiGame` 配置项，并对齐 `profile/data` 请求参数。
+- 新增米游社 `MysDeviceFp`、`MysAppVersion`、`MysClientType`、`MysDsSalt` 配置项。
+- 米游社源实现 `index` 获取角色列表，再调用 `character/list` 获取角色详情。
+
+### Changed
+- 对齐 Miao、MiniGG、Hutao 默认接口地址。
+- 为 Enka、MiniGG、Hutao 使用更接近 miao-plugin 的 User-Agent。
+
 ## [0.4.0] - 2026-04-24
 
 ### Added

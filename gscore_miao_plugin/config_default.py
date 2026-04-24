@@ -1,12 +1,9 @@
 from typing import Dict
 
-from gsuid_core.utils.plugins_config.models import (
-    GSC,
-    GsBoolConfig,
-    GsIntConfig,
-    GsListStrConfig,
-    GsStrConfig,
-)
+from gsuid_core.utils.plugins_config.models import (GSC, GsBoolConfig,
+                                                    GsIntConfig,
+                                                    GsListStrConfig,
+                                                    GsStrConfig)
 
 CONFIG_DEFAULT: Dict[str, GSC] = {
     "EnableHelp": GsBoolConfig(
@@ -37,7 +34,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     "AllowedPanelServers": GsListStrConfig(
         "可选面板服务",
         "展示给用户可选择的面板服务列表",
-        ["auto", "miao", "enka", "mgg", "hutao"],
+        ["auto", "miao", "enka", "mgg", "hutao", "mys"],
         options=["auto", "miao", "enka", "mgg", "hutao", "mys"],
     ),
     "DefaultPanelServer": GsStrConfig(
@@ -70,13 +67,24 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "MiaoApiBaseUrl": GsStrConfig(
         "Miao API地址",
-        "自建或兼容 miao 面板接口的基础地址，留空则跳过",
+        "Miao API 基础地址，默认对齐 miao-plugin 的 http://miao.games",
+        "http://miao.games",
+    ),
+    "MiaoApiQQ": GsStrConfig(
+        "Miao API绑定QQ",
+        "Miao API token 绑定的机器人QQ；未配置时会传 none",
         "",
     ),
     "MiaoApiToken": GsStrConfig(
         "Miao API密钥",
-        "Miao API 鉴权 Token，没有可留空",
+        "Miao API 鉴权 Token，通常为32位；没有可留空跳过",
         "",
+    ),
+    "MiaoApiGame": GsStrConfig(
+        "Miao API游戏类型",
+        "请求 Miao API 时携带的 game 参数",
+        "gs",
+        options=["gs"],
     ),
     "EnkaApiBaseUrl": GsStrConfig(
         "Enka API地址",
@@ -91,8 +99,8 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "MysApiBaseUrl": GsStrConfig(
         "米游社API地址",
-        "米游社面板接口基础地址，正式接入 Cookie/签名后使用",
-        "",
+        "米游社记录接口基础地址，默认 api-takumi-record.mihoyo.com",
+        "https://api-takumi-record.mihoyo.com",
     ),
     "MysCookie": GsStrConfig(
         "米游社Cookie",
@@ -104,15 +112,36 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "米游社请求设备ID，留空时后续可自动生成",
         "",
     ),
+    "MysDeviceFp": GsStrConfig(
+        "米游社DeviceFp",
+        "米游社风控设备指纹，留空则不主动携带",
+        "",
+    ),
+    "MysAppVersion": GsStrConfig(
+        "米游社App版本",
+        "x-rpc-app_version，需与签名盐版本保持一致",
+        "2.102.1",
+    ),
+    "MysClientType": GsStrConfig(
+        "米游社ClientType",
+        "x-rpc-client_type，国内米游社默认5",
+        "5",
+        options=["5", "2", "4"],
+    ),
+    "MysDsSalt": GsStrConfig(
+        "米游社DS Salt",
+        "留空使用内置盐；米游社接口变更时可在此覆盖",
+        "",
+    ),
     "MggApiBaseUrl": GsStrConfig(
         "Mgg API地址",
-        "兼容 Mgg 面板数据源的基础地址，留空则跳过",
-        "",
+        "MiniGG 面板数据源基础地址",
+        "http://profile.microgg.cn",
     ),
     "HutaoApiBaseUrl": GsStrConfig(
         "胡桃API地址",
-        "兼容胡桃面板数据源的基础地址，留空则跳过",
-        "",
+        "Hutao Enka 代理基础地址",
+        "http://enka-api.hut.ao",
     ),
     "PanelCacheTTL": GsIntConfig(
         "面板缓存秒数",
