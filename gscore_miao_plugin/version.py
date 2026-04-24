@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.8.3"
+PLUGIN_VERSION = "0.9.0"
 
 CHANGELOGS = [
+    {
+        "version": "0.9.0",
+        "date": "2026-04-25",
+        "items": [
+            "新增 UID 绑定：喵喵设置uid <UID>，面板/圣遗物/伤害/自然命令可省略 UID",
+            "新增面板列表、更新面板、删除面板/解绑UID 等 miao-plugin 常用管理入口",
+            "更新面板会清理当前进程内面板缓存后重新拉取数据",
+        ],
+    },
     {
         "version": "0.8.3",
         "date": "2026-04-25",

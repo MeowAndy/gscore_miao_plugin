@@ -15,6 +15,7 @@ class MiaoUserConfig(BaseIDModel, table=True):
 
     user_id: str = Field(default="", title="用户ID")
     bot_id: str = Field(default="", title="机器人ID")
+    uid: str = Field(default="", title="绑定UID")
     panel_server: str = Field(default="auto", title="面板服务")
     custom_splash: bool = Field(default=True, title="自定义面板图")
     team_calc: bool = Field(default=False, title="组队伤害计算")

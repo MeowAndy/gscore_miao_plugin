@@ -28,3 +28,10 @@ def set_cached_panel(source: str, uid: str, result: PanelResult) -> None:
     if ttl <= 0:
         return
     _CACHE[(source, uid)] = (time.time(), result)
+
+
+def clear_cached_panel(uid: str, source: str | None = None) -> int:
+    keys = [key for key in _CACHE if key[1] == uid and (source is None or key[0] == source)]
+    for key in keys:
+        _CACHE.pop(key, None)
+    return len(keys)

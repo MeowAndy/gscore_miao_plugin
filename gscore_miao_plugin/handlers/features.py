@@ -7,8 +7,9 @@ from ..artifact_service import render_artifact_text
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
 from ..damage_service import render_damage_text
+from ..panel_cache import clear_cached_panel
 from ..panel_renderer import render_single_panel_image
-from ..panel_service import query_panel
+from ..panel_service import query_panel, render_panel_text
 from ..settings import merge_user_cfg
 from ..store import get_user_cfg
 
@@ -23,6 +24,13 @@ async def _query_user_panel(bot: Bot, ev: Event, uid: str):
         detail = "\n".join(errors[:5]) if errors else "无可用数据源"
         await bot.send(f"面板数据查询失败。\n当前服务：{source}\n失败原因：\n{detail}")
     return result
+
+
+async def _uid_from_event(ev: Event, uid: str) -> str:
+    if uid:
+        return uid
+    user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
+    return str(user_cfg.get("uid") or "").strip()
 
 
 def _resolve_name(raw_name: str) -> str:
@@ -51,9 +59,9 @@ async def send_miao_style_profile(bot: Bot, ev: Event):
     data = ev.regex_dict or {}
     name = _resolve_name(data.get("name") or "")
     mode = (data.get("mode") or "").strip()
-    uid = (data.get("uid") or "").strip()
+    uid = await _uid_from_event(ev, (data.get("uid") or "").strip())
     if not uid:
-        return await bot.send(f"请携带 UID，例如：喵喵{name}{mode} 100000001")
+        return await bot.send(f"请携带 UID，例如：喵喵{name}{mode} 100000001\n也可先绑定：喵喵设置uid 100000001")
 
     result = await _query_user_panel(bot, ev, uid)
     if not result:
@@ -81,8 +89,9 @@ async def send_artifact(bot: Bot, ev: Event):
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     uid = ((ev.regex_dict or {}).get("uid") or "").strip()
+    uid = await _uid_from_event(ev, uid)
     if not uid:
-        return await bot.send("请携带 UID，例如：喵喵圣遗物评分 100000001")
+        return await bot.send("请携带 UID，例如：喵喵圣遗物评分 100000001\n也可先绑定：喵喵设置uid 100000001")
     name = _resolve_name((ev.regex_dict or {}).get("name") or "")
     result = await _query_user_panel(bot, ev, uid)
     if result:
@@ -96,8 +105,9 @@ async def send_damage(bot: Bot, ev: Event):
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     uid = ((ev.regex_dict or {}).get("uid") or "").strip()
+    uid = await _uid_from_event(ev, uid)
     if not uid:
-        return await bot.send("请携带 UID，例如：喵喵伤害计算 100000001")
+        return await bot.send("请携带 UID，例如：喵喵伤害计算 100000001\n也可先绑定：喵喵设置uid 100000001")
     name = _resolve_name((ev.regex_dict or {}).get("name") or "")
     result = await _query_user_panel(bot, ev, uid)
     if result:
@@ -111,9 +121,49 @@ async def send_single_panel(bot: Bot, ev: Event):
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     uid = ((ev.regex_dict or {}).get("uid") or "").strip()
+    uid = await _uid_from_event(ev, uid)
     if not uid:
-        return await bot.send("请携带 UID，例如：喵喵面板图 100000001 雷神")
+        return await bot.send("请携带 UID，例如：喵喵面板图 100000001 雷神\n也可先绑定：喵喵设置uid 100000001")
     name = _resolve_name((ev.regex_dict or {}).get("name") or "")
     result = await _query_user_panel(bot, ev, uid)
     if result:
         await bot.send(await render_single_panel_image(result, name))
+
+
+@sv_feature.on_regex(r"^(面板列表|面板角色列表|角色列表)\s*(?P<uid>\d{9,10})?$", block=True)
+async def send_panel_list(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnablePanelQuery").data:
+        return
+    if not can_use_plugin(ev):
+        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
+    uid = await _uid_from_event(ev, ((ev.regex_dict or {}).get("uid") or "").strip())
+    if not uid:
+        return await bot.send("请携带 UID，例如：喵喵面板列表 100000001\n也可先绑定：喵喵设置uid 100000001")
+    result = await _query_user_panel(bot, ev, uid)
+    if result:
+        await bot.send(render_panel_text(result))
+
+
+@sv_feature.on_regex(r"^(更新面板|刷新面板|全部面板更新|重载面板)\s*(?P<uid>\d{9,10})?$", block=True)
+async def send_panel_update(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnablePanelQuery").data:
+        return
+    if not can_use_plugin(ev):
+        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
+    uid = await _uid_from_event(ev, ((ev.regex_dict or {}).get("uid") or "").strip())
+    if not uid:
+        return await bot.send("请携带 UID，例如：喵喵更新面板 100000001\n也可先绑定：喵喵设置uid 100000001")
+    clear_cached_panel(uid)
+    result = await _query_user_panel(bot, ev, uid)
+    if result:
+        await bot.send(f"面板已刷新：{uid}\n数据源：{result.source}\n角色数：{len(result.characters or result.avatars or [])}")
+
+
+@sv_feature.on_regex(r"^(删除面板|解绑UID|解绑uid)\s*(?P<uid>\d{9,10})?$", block=True)
+async def send_panel_delete(bot: Bot, ev: Event):
+    if not can_use_plugin(ev):
+        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
+    from ..store import unbind_uid
+
+    await unbind_uid(ev.user_id, ev.bot_id)
+    await bot.send("已删除本地绑定 UID。第三方面板源缓存暂不支持远程删除。")

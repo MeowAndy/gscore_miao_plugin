@@ -59,11 +59,10 @@ async def send_panel(bot: Bot, ev: Event):
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
 
-    uid = ((ev.regex_dict or {}).get("uid") or "").strip()
-    if not uid:
-        return await bot.send("请携带 UID，例如：喵喵面板 100000001")
-
     user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
+    uid = ((ev.regex_dict or {}).get("uid") or "").strip() or str(user_cfg.get("uid") or "").strip()
+    if not uid:
+        return await bot.send("请携带 UID，例如：喵喵面板 100000001\n也可先绑定：喵喵设置uid 100000001")
     source = str(user_cfg.get("panel_server") or "auto")
     result, errors = await query_panel(uid, source)
     if result is None:

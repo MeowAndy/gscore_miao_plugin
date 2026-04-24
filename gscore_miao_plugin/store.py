@@ -60,3 +60,19 @@ async def reset_user_cfg(user_id: str, bot_id: str) -> None:
         if k in data:
             del data[k]
             _save_json(data)
+
+
+async def bind_uid(user_id: str, bot_id: str, uid: str) -> Dict[str, Any]:
+    return await set_user_cfg(user_id, bot_id, {"uid": uid})
+
+
+async def unbind_uid(user_id: str, bot_id: str) -> Dict[str, Any]:
+    async with _LOCK:
+        data = _load_json()
+        k = _user_key(user_id, bot_id)
+        old = data.get(k, {})
+        merged = {**old, "updated_at": int(time.time())}
+        merged.pop("uid", None)
+        data[k] = merged
+        _save_json(data)
+        return merged

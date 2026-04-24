@@ -7,7 +7,8 @@ from gsuid_core.sv import SV
 from ..auth import add_history, can_use_plugin, get_recent_history_lines
 from ..config import MiaoConfig
 from ..settings import build_default_user_cfg, merge_user_cfg
-from ..store import get_user_cfg, reset_user_cfg, set_user_cfg
+from ..store import (bind_uid, get_user_cfg, reset_user_cfg, set_user_cfg,
+                     unbind_uid)
 
 sv_admin = SV("GsCoreMiao设置")
 
@@ -53,12 +54,14 @@ async def miao_setting(bot: Bot, ev: Event):
     if not key:
         user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
         panel_server = user_cfg.get("panel_server", "auto")
+        uid = user_cfg.get("uid") or "未绑定"
         custom_splash = user_cfg.get("custom_splash", True)
         team_calc = user_cfg.get("team_calc", False)
         show_star = user_cfg.get("show_star", False)
         comma_group = user_cfg.get("comma_group", 3)
         return await bot.send(
             "【喵喵设置】\n"
+            f"绑定UID: {uid}\n"
             f"面板服务: {panel_server}\n"
             f"面板图: {'开启' if custom_splash else '关闭'}\n"
             f"组队伤害: {'开启' if team_calc else '关闭'}\n"
@@ -66,6 +69,7 @@ async def miao_setting(bot: Bot, ev: Event):
             f"数字分组: {comma_group}\n\n"
             "可用：\n"
             f"喵喵设置面板服务 <{_schema_desc()}>\n"
+            "喵喵设置uid <UID>\n"
             "喵喵设置面板图 <开启|关闭>\n"
             "喵喵设置组队 <开启|关闭>\n"
             "喵喵设置星级 <开启|关闭>\n"
@@ -104,6 +108,17 @@ async def miao_setting(bot: Bot, ev: Event):
         await set_user_cfg(ev.user_id, ev.bot_id, {"panel_server": value})
         await add_history(ev, "面板服务", value)
         return await bot.send(f"已设置面板服务为：{value}")
+
+    if key.lower() == "uid":
+        if value in {"", "解绑", "删除", "unset", "clear"}:
+            await unbind_uid(ev.user_id, ev.bot_id)
+            await add_history(ev, "UID解绑", "ok")
+            return await bot.send("已解绑 UID")
+        if not value.isdigit() or len(value) not in {9, 10}:
+            return await bot.send("请填写正确 UID，例如：喵喵设置uid 100000001")
+        await bind_uid(ev.user_id, ev.bot_id, value)
+        await add_history(ev, "UID绑定", value)
+        return await bot.send(f"已绑定 UID：{value}\n之后可直接使用：喵喵面板 / 喵喵雷神面板")
 
     if key == "面板图":
         b = _normalize_bool(value)

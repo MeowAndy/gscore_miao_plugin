@@ -8,6 +8,7 @@ from .config import MiaoConfig
 def build_default_user_cfg() -> Dict[str, object]:
     return {
         "panel_server": MiaoConfig.get_config("DefaultPanelServer").data,
+        "uid": "",
         "custom_splash": True,
         "team_calc": False,
         "show_star": False,
