@@ -132,6 +132,95 @@ def _check_retcode(source: str, raw: Dict[str, Any]) -> None:
         raise PanelSourceError(source, f"接口返回 {retcode}: {msg}")
 
 
+def _enka_fight_props(props: Dict[str, Any]) -> Dict[str, Any]:
+    def number(key: str, default: float = 0) -> float:
+        value = props.get(key, default)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    return {
+        "生命值": round(number("2000")),
+        "攻击力": round(number("2001")),
+        "防御力": round(number("2002")),
+        "元素精通": round(number("28")),
+        "暴击率": round(number("20") * 100, 1),
+        "暴击伤害": round(number("22") * 100, 1),
+        "充能效率": round(number("23") * 100, 1),
+        "治疗加成": round(number("26") * 100, 1),
+    }
+
+
+def _enka_skill_levels(skill_map: Dict[str, Any]) -> List[int]:
+    levels: List[int] = []
+    for key in sorted(skill_map.keys(), key=lambda x: int(x) if str(x).isdigit() else str(x)):
+        value = skill_map.get(key)
+        if isinstance(value, int):
+            levels.append(value)
+    return levels
+
+
+def _enka_weapon(equip_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+    for equip in equip_list:
+        if equip.get("weapon"):
+            flat = equip.get("flat") or {}
+            weapon = equip.get("weapon") or {}
+            return {
+                "name": flat.get("nameTextMapHash") or str(weapon.get("itemId") or "未知武器"),
+                "level": weapon.get("level"),
+                "promote_level": weapon.get("promoteLevel"),
+                "refine": (weapon.get("affixMap") or {}).copy(),
+                "rarity": flat.get("rankLevel"),
+            }
+    return {}
+
+
+def _enka_reliquaries(equip_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    reliquaries: List[Dict[str, Any]] = []
+    for equip in equip_list:
+        reliq = equip.get("reliquary")
+        if not isinstance(reliq, dict):
+            continue
+        flat = equip.get("flat") or {}
+        reliquaries.append(
+            {
+                "name": flat.get("nameTextMapHash") or str(equip.get("itemId") or "未知圣遗物"),
+                "pos": flat.get("equipType"),
+                "level": reliq.get("level"),
+                "rarity": flat.get("rankLevel"),
+                "main_prop": (flat.get("reliquaryMainstat") or {}).get("mainPropId"),
+                "sub_props": [x.get("appendPropId") for x in flat.get("reliquarySubstats") or []],
+            }
+        )
+    return reliquaries
+
+
+def _parse_enka_characters(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
+    characters: List[Dict[str, Any]] = []
+    for avatar in raw.get("avatarInfoList") or []:
+        if not isinstance(avatar, dict):
+            continue
+        prop_map = avatar.get("propMap") or {}
+        fight_props = avatar.get("fightPropMap") or {}
+        equip_list = avatar.get("equipList") or []
+        skill_map = avatar.get("skillLevelMap") or {}
+        characters.append(
+            {
+                "avatar_id": avatar.get("avatarId"),
+                "level": (prop_map.get("4001") or {}).get("val"),
+                "promote_level": avatar.get("propMap", {}).get("1002", {}).get("ival"),
+                "constellation": len(avatar.get("talentIdList") or []),
+                "friendship": (prop_map.get("10010") or {}).get("val"),
+                "skill_levels": _enka_skill_levels(skill_map),
+                "weapon": _enka_weapon(equip_list),
+                "reliquaries": _enka_reliquaries(equip_list),
+                "fight_props": _enka_fight_props(fight_props),
+            }
+        )
+    return characters
+
+
 class EnkaPanelSource(BasePanelSource):
     source_name = "enka"
 
@@ -156,6 +245,7 @@ class EnkaPanelSource(BasePanelSource):
             raise PanelSourceError(self.source_name, f"Enka 请求失败：{e}") from e
 
         player = raw.get("playerInfo") or {}
+        characters = _parse_enka_characters(raw)
         result = PanelResult(
             source=self.source_name,
             uid=uid,
@@ -164,6 +254,7 @@ class EnkaPanelSource(BasePanelSource):
             level=player.get("level"),
             signature=str(player.get("signature") or ""),
             avatars=raw.get("avatarInfoList") or [],
+            characters=characters,
         )
         set_cached_panel(self.source_name, uid, result)
         return result

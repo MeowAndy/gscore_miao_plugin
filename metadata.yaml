@@ -1,4 +1,4 @@
 name: gscore_miao-plugin
-version: 0.5.0
+version: 0.5.1
 author: GitHub Copilot
-desc: miao-plugin 的 GsCore 迁移版（含 WebUI 配置、Miao/米游社面板接口、设置扩展、更新日志与权限）
+desc: miao-plugin 的 GsCore 迁移版（含 WebUI 配置、Enka角色详情、Miao/米游社面板接口、设置扩展与权限）

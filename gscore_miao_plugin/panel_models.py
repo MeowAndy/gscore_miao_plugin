@@ -13,6 +13,7 @@ class PanelResult:
     level: Optional[int] = None
     signature: str = ""
     avatars: Optional[List[Dict[str, Any]]] = None
+    characters: Optional[List[Dict[str, Any]]] = None
 
 
 class PanelSourceError(RuntimeError):

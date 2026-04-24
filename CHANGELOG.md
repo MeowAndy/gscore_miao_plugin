@@ -2,6 +2,15 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.5.1] - 2026-04-25
+
+### Added
+- Enka 数据源解析 `avatarInfoList` 为统一角色详情字段。
+- 面板文本摘要展示角色等级、命座、好感、天赋、武器、圣遗物数量、双暴与充能。
+
+### Changed
+- 将面板摘要文案从“数据接入骨架”调整为“文本详情摘要”。
+
 ## [0.5.0] - 2026-04-24
 
 ### Added

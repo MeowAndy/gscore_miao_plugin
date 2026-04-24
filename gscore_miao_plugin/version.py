@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.5.0"
+PLUGIN_VERSION = "0.5.1"
 
 CHANGELOGS = [
+    {
+        "version": "0.5.1",
+        "date": "2026-04-25",
+        "items": [
+            "完善 Enka avatarInfoList 角色详情解析",
+            "面板文本摘要新增角色等级、命座、天赋、武器、圣遗物与双暴信息",
+            "为后续图片面板渲染补齐统一角色详情字段",
+        ],
+    },
     {
         "version": "0.5.0",
         "date": "2026-04-24",
