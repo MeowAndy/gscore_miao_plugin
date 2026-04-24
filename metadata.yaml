@@ -1,4 +1,4 @@
 name: gscore_miao-plugin
-version: 0.7.0
+version: 0.8.0
 author: GitHub Copilot
 desc: miao-plugin 的 GsCore 迁移版（含 WebUI 配置、图片面板、圣遗物评分、伤害估算、角色别名与面板数据源）

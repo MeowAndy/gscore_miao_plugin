@@ -2,6 +2,15 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.8.0] - 2026-04-25
+
+### Added
+- 新增 miao-plugin 风格自然角色命令：`喵喵雷神面板 <UID>`、`喵喵雷神圣遗物 <UID>`、`喵喵雷神伤害 <UID>`。
+- 新增迁移路线文档 `MIGRATION_PLAN.md`，整理和 Yunzai `miao-plugin` 对齐仍需迁移的模块。
+
+### Changed
+- 统一扩展功能中的角色别名解析逻辑，普通命令和自然角色命令都可识别 `雷神` 等别名。
+
 ## [0.7.0] - 2026-04-25
 
 ### Added
