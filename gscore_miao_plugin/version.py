@@ -1,6 +1,16 @@
-PLUGIN_VERSION = "0.13.2"
+PLUGIN_VERSION = "0.13.3"
 
 CHANGELOGS = [
+    {
+        "version": "0.13.3",
+        "date": "2026-04-25",
+        "items": [
+            "修复 Enka 武器 itemId 位于 equip.itemId 时无法反查武器名与图标的问题",
+            "补齐 Enka 圣遗物主词条与副词条数值解析，面板图圣遗物卡片开始显示单件评分与评级",
+            "圣遗物评分不再把花/羽固定主词条计入，扁平生命/攻击/防御副词条会按等效百分比折算后评分",
+            "圣遗物详情图副词条展示数值，继续对齐 Yunzai miao-plugin 的 artis-mark 评分展示",
+        ],
+    },
     {
         "version": "0.13.2",
         "date": "2026-04-25",

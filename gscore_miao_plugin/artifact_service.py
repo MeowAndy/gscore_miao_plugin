@@ -112,6 +112,25 @@ MAX_SUB_VALUE = {
     "heal": 5.4,
 }
 
+ARTIFACT_SLOT_INDEX = {
+    "EQUIP_BRACER": 1,
+    "EQUIP_NECKLACE": 2,
+    "EQUIP_SHOES": 3,
+    "EQUIP_RING": 4,
+    "EQUIP_DRESS": 5,
+    "生之花": 1,
+    "死之羽": 2,
+    "时之沙": 3,
+    "空之杯": 4,
+    "理之冠": 5,
+}
+
+FLAT_PROP_MAX = {
+    "FIGHT_PROP_HP": (298.75, 5.8),
+    "FIGHT_PROP_ATTACK": (19.45, 5.8),
+    "FIGHT_PROP_DEFENSE": (23.15, 7.3),
+}
+
 
 def _as_float(value: Any, default: float = 0.0) -> float:
     try:
@@ -183,11 +202,29 @@ def _prop_key(prop: Any) -> str:
 
 def _sub_value(prop: Any) -> float:
     if isinstance(prop, dict):
+        prop_id = str(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or "").upper()
         for key in ("value", "val", "count", "cnt"):
             if key in prop:
-                return _as_float(prop.get(key), 0)
-        return MAX_SUB_VALUE.get(_prop_key(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key")), 2.5)
+                value = _as_float(prop.get(key), 0)
+                if prop_id in FLAT_PROP_MAX:
+                    flat_max, pct_max = FLAT_PROP_MAX[prop_id]
+                    return value / flat_max * pct_max
+                return value
+        return MAX_SUB_VALUE.get(_prop_key(prop_id), 2.5)
     return MAX_SUB_VALUE.get(_prop_key(prop), 2.5)
+
+
+def _artifact_pos_index(reliq: Dict[str, Any], fallback_idx: int = 0) -> int:
+    pos = reliq.get("pos")
+    if pos in ARTIFACT_SLOT_INDEX:
+        return ARTIFACT_SLOT_INDEX[pos]
+    try:
+        num = int(pos)
+        if 1 <= num <= 5:
+            return num
+    except (TypeError, ValueError):
+        pass
+    return fallback_idx + 1
 
 
 def _weight_for_char(char: Dict[str, Any]) -> Tuple[str, Dict[str, float]]:
@@ -226,9 +263,10 @@ def _prop_score(prop: Any, weight: Dict[str, float], main: bool = False) -> floa
     return mark / 4 if main else mark
 
 
-def score_reliquary(reliq: Dict[str, Any], weight: Dict[str, float]) -> float:
+def score_reliquary(reliq: Dict[str, Any], weight: Dict[str, float], fallback_idx: int = 0) -> float:
     score = 0.0
-    score += _prop_score(reliq.get("main_prop"), weight, True)
+    if _artifact_pos_index(reliq, fallback_idx) >= 3:
+        score += _prop_score(reliq.get("main_prop"), weight, True)
     for prop in reliq.get("sub_props") or []:
         if isinstance(prop, dict):
             score += _as_float(prop.get("score"), _prop_score(prop, weight))
@@ -243,7 +281,7 @@ def score_reliquary(reliq: Dict[str, Any], weight: Dict[str, float]) -> float:
 
 def character_artifact_score(char: Dict[str, Any]) -> Tuple[float, List[float], str]:
     title, weight = _weight_for_char(char)
-    scores = [score_reliquary(x, weight) for x in char.get("reliquaries") or [] if isinstance(x, dict)]
+    scores = [score_reliquary(x, weight, idx) for idx, x in enumerate(char.get("reliquaries") or []) if isinstance(x, dict)]
     return round(sum(scores), 1), scores, title
 
 

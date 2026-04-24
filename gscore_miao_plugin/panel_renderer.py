@@ -534,6 +534,8 @@ def _artifact_name(rel: Dict[str, Any], fallback: str) -> str:
 
 
 def _prop_name(value: Any) -> str:
+    if isinstance(value, dict):
+        value = value.get("appendPropId") or value.get("prop_id") or value.get("key") or value.get("mainPropId")
     text = str(value or "").strip()
     if not text:
         return "主词条"
@@ -543,6 +545,23 @@ def _prop_name(value: Any) -> str:
     if upper in PROP_NAME_MAP:
         return PROP_NAME_MAP[upper]
     return text.replace("FIGHT_PROP_", "").replace("_", " ")[:16]
+
+
+def _prop_value(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    raw = value.get("value") or value.get("val") or value.get("statValue")
+    if raw is None or raw == "":
+        return ""
+    try:
+        num = float(raw)
+    except (TypeError, ValueError):
+        return str(raw)
+    key = str(value.get("appendPropId") or value.get("prop_id") or value.get("key") or value.get("mainPropId") or "").upper()
+    suffix = "%" if "PERCENT" in key or "CRITICAL" in key or "HURT" in key or "CHARGE" in key or "ADD" in key or "HEAL" in key else ""
+    if abs(num - round(num)) < 0.01:
+        return f"{round(num)}{suffix}"
+    return f"{num:.1f}{suffix}"
 
 
 def _artifact_level(value: Any) -> str:
@@ -716,14 +735,19 @@ def _reliq_label(index: int) -> str:
 
 
 def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
+    from .artifact_service import (_weight_for_char, artifact_rank,
+                                   character_artifact_score, score_reliquary)
+
     reliqs = [r for r in (char.get("reliquaries") or []) if isinstance(r, dict)][:5]
+    _, weight = _weight_for_char(char)
+    _, scores, _ = character_artifact_score(char)
     y = _draw_section_title(draw, y, "圣遗物", f"{len(reliqs)}/5")
-    card_w, card_h = 176, 128
+    card_w, card_h = 176, 158
     for idx in range(5):
         col = idx % 3
         row = idx // 3
         x = 25 + col * 187
-        yy = y + row * 140
+        yy = y + row * 170
         rel = reliqs[idx] if idx < len(reliqs) else {}
         level = _artifact_level(rel.get("level"))
         rarity = int(rel.get("rarity") or 5)
@@ -737,9 +761,23 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
         title = _artifact_name(rel, _reliq_label(idx))
         _text(draw, (x + 70, yy + 14), _fit_text(title, 6), (245, 228, 183), FONT_SMALL)
         main = _prop_name(rel.get("main_prop") or rel.get("main"))
-        _text(draw, (x + 14, yy + 68), main, (210, 210, 210), FONT_TINY)
-        _text(draw, (x + 14, yy + 94), f"+{level}  {'★' * min(rarity, 5)}", (144, 232, 74), FONT_TINY)
-    return y + 292
+        main_value = _prop_value(rel.get("main_prop") or rel.get("main"))
+        _text(draw, (x + 14, yy + 66), _fit_text(f"{main} {main_value}".strip(), 11), (210, 210, 210), FONT_TINY)
+        score = scores[idx] if idx < len(scores) else (score_reliquary(rel, weight, idx) if rel else 0)
+        score_text = f"{score:.1f} {artifact_rank(score)}" if rel else "-"
+        _text(draw, (x + 14, yy + 88), f"+{level}  {score_text}", (255, 232, 170), FONT_TINY)
+        if rel:
+            sub_lines = []
+            for prop in (rel.get("sub_props") or [])[:2]:
+                if isinstance(prop, dict):
+                    pn = _prop_name(prop)
+                    pv = _prop_value(prop)
+                    sub_lines.append(f"{pn}+{pv}" if pv else pn)
+                else:
+                    sub_lines.append(_prop_name(prop))
+            _text(draw, (x + 14, yy + 110), _fit_text(" / ".join(sub_lines[:1]), 13), (188, 196, 210), FONT_TINY)
+            _text(draw, (x + 14, yy + 132), _fit_text(" / ".join(sub_lines[1:2]), 13), (188, 196, 210), FONT_TINY)
+    return y + 352
 
 
 def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
@@ -754,7 +792,7 @@ def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, c
     y += 26
     for idx in range(5):
         rel = reliqs[idx] if idx < len(reliqs) else {}
-        score = scores[idx] if idx < len(scores) else (score_reliquary(rel, weight) if rel else 0)
+        score = scores[idx] if idx < len(scores) else (score_reliquary(rel, weight, idx) if rel else 0)
         x, h = 25, 112
         _rounded_r(draw, (x, y, 575, y + h), 12, (42, 39, 42), _star_color(int(rel.get("rarity") or 5)), 1)
         icon = _open_image(_artifact_icon(rel, idx), (66, 66), contain=True)
@@ -772,8 +810,8 @@ def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, c
         for prop in rel.get("sub_props") or []:
             if isinstance(prop, dict):
                 prop_name = _prop_name(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key"))
-                prop_value = prop.get("value") or prop.get("val") or ""
-                subs.append(f"{prop_name}{prop_value}")
+                prop_value = _prop_value(prop)
+                subs.append(f"{prop_name}+{prop_value}" if prop_value else prop_name)
             else:
                 subs.append(_prop_name(prop))
         _text(draw, (x + 96, y + 72), _fit_text(" / ".join(subs) or "无副词条", 34), (188, 196, 210), FONT_TINY)

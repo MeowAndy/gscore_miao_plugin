@@ -303,10 +303,11 @@ def _enka_weapon(equip_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         if equip.get("weapon"):
             flat = equip.get("flat") or {}
             weapon = equip.get("weapon") or {}
+            item_id = weapon.get("itemId") or equip.get("itemId")
             refine_values = list((weapon.get("affixMap") or {}).values())
             return {
-                "item_id": weapon.get("itemId"),
-                "name": flat.get("nameTextMapHash") or str(weapon.get("itemId") or "未知武器"),
+                "item_id": item_id,
+                "name": flat.get("nameTextMapHash") or str(item_id or "未知武器"),
                 "level": weapon.get("level"),
                 "promote_level": weapon.get("promoteLevel"),
                 "refine": (_to_int(refine_values[0]) + 1) if refine_values else 1,
@@ -322,6 +323,7 @@ def _enka_reliquaries(equip_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not isinstance(reliq, dict):
             continue
         flat = equip.get("flat") or {}
+        main_stat = flat.get("reliquaryMainstat") or {}
         reliquaries.append(
             {
                 "item_id": equip.get("itemId"),
@@ -330,8 +332,19 @@ def _enka_reliquaries(equip_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "pos": flat.get("equipType"),
                 "level": reliq.get("level"),
                 "rarity": flat.get("rankLevel"),
-                "main_prop": (flat.get("reliquaryMainstat") or {}).get("mainPropId"),
-                "sub_props": [x.get("appendPropId") for x in flat.get("reliquarySubstats") or []],
+                "main_prop": {
+                    "key": main_stat.get("mainPropId"),
+                    "value": main_stat.get("statValue"),
+                },
+                "sub_props": [
+                    {
+                        "key": x.get("appendPropId"),
+                        "appendPropId": x.get("appendPropId"),
+                        "value": x.get("statValue"),
+                    }
+                    for x in flat.get("reliquarySubstats") or []
+                    if isinstance(x, dict)
+                ],
             }
         )
     return reliquaries
