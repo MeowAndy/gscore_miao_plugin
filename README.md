@@ -2,7 +2,7 @@
 
 将 Yunzai `miao-plugin` 迁移为可在 GsCore 运行的简化插件。
 
-## 已移植能力（v0.6.0）
+## 已移植能力（v0.7.0）
 
 - 帮助：`喵喵帮助` / `喵喵菜单`
 - 版本：`喵喵版本`
@@ -18,6 +18,10 @@
   - `#喵喵设置重置`
 - 更新日志：`喵喵更新日志`
 - 面板入口：`喵喵面板 <UID>`（已接入 Miao/Enka/米游社/Mgg/胡桃数据源；Enka 已解析角色详情并支持图片面板）
+- 单角色面板图：`喵喵面板图 <UID> [角色]`
+- 圣遗物评分：`喵喵圣遗物评分 <UID> [角色]`
+- 伤害估算：`喵喵伤害计算 <UID> [角色]`
+- 角色别名：`喵喵角色别名 <角色/别名>`
 - 权限控制：支持游客开关（关闭后仅管理员可用）
 - 状态页：注册 GsCore 插件状态统计
 - WebUI 配置项（GsCore 网页控制台）：
@@ -31,6 +35,9 @@
   - PanelSourcePriority
   - PanelRequestTimeout
   - EnablePanelQuery
+  - EnableAliasQuery
+  - EnableArtifactScore
+  - EnableDamageCalc
   - EnablePanelFallback
   - MiaoApiBaseUrl
   - MiaoApiQQ
@@ -75,12 +82,17 @@
 ## 说明
 
 原 `miao-plugin` 为 Yunzai 生态（Node.js）插件，和 GsCore（Python）运行时差异较大。
-当前版本为 **功能语义迁移（v0.6.0）**，重点迁移命令形态、配置管理、更新日志、基础权限控制、面板数据源与图片模板。
-Miao API 已对齐 `profile/data` 参数，米游社源已实现 `index` + `character/list` 与 DS 签名流程，Enka 源已解析角色详情摘要；`PanelRenderMode=image` 可输出 miao-plugin 风格角色面板图片。
+当前版本为 **功能语义迁移（v0.7.0）**，重点迁移命令形态、配置管理、更新日志、基础权限控制、面板数据源、图片模板、角色别名、圣遗物评分与伤害估算。
+Miao API 已对齐 `profile/data` 参数，米游社源已实现 `index` + `character/list` 与 DS 签名流程，Enka 源已解析角色详情摘要；`PanelRenderMode=image` 可输出 miao-plugin 风格角色面板图片。圣遗物评分与伤害估算当前为首版通用算法，后续会继续逐角色对齐 miao-plugin 计算模板。
 
 ## 更新日志（内置）
 
 完整变更记录见 `CHANGELOG.md`。
+
+- v0.7.0
+  - 新增角色别名查询、圣遗物评分、伤害估算
+  - 新增 `喵喵面板图 <UID> [角色]` 单角色图片面板
+  - WebUI 增加别名、圣遗物、伤害计算功能开关
 
 - v0.6.0
   - 新增 miao-plugin 风格角色面板图片模板

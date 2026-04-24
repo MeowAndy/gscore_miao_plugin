@@ -2,6 +2,18 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.7.0] - 2026-04-25
+
+### Added
+- 新增 `喵喵角色别名 <角色/别名>`，内置常用原神角色别名映射。
+- 新增 `喵喵圣遗物评分 <UID> [角色]`，基于公开面板圣遗物字段输出首版评分。
+- 新增 `喵喵伤害计算 <UID> [角色]`，基于面板属性输出通用伤害估算。
+- 新增 `喵喵面板图 <UID> [角色]` 单角色图片面板入口。
+- WebUI 新增 `EnableAliasQuery`、`EnableArtifactScore`、`EnableDamageCalc` 开关。
+
+### Changed
+- 帮助菜单补充别名、圣遗物、伤害计算、单角色面板图命令。
+
 ## [0.6.0] - 2026-04-25
 
 ### Added

@@ -60,6 +60,21 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "关闭后将不响应 面板/角色面板/角色卡片 指令",
         True,
     ),
+    "EnableAliasQuery": GsBoolConfig(
+        "开启角色别名查询",
+        "关闭后将不响应 角色别名/别名 指令",
+        True,
+    ),
+    "EnableArtifactScore": GsBoolConfig(
+        "开启圣遗物评分",
+        "关闭后将不响应 圣遗物评分 指令",
+        True,
+    ),
+    "EnableDamageCalc": GsBoolConfig(
+        "开启伤害计算",
+        "关闭后将不响应 伤害计算 指令",
+        True,
+    ),
     "EnablePanelFallback": GsBoolConfig(
         "开启数据源降级",
         "当前数据源失败时，是否继续尝试下一个数据源",
