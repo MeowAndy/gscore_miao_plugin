@@ -74,7 +74,7 @@ async def send_panel(bot: Bot, ev: Event):
                 "请在网页控制台配置 Miao/Enka/米游社等数据源，或使用：喵喵设置面板服务 auto"
         )
 
-    render_mode = str(MiaoConfig.get_config("PanelRenderMode").data or "text")
+    render_mode = str(MiaoConfig.get_config("PanelRenderMode").data or "image")
     use_image = render_mode == "image" and bool(user_cfg.get("custom_splash", True))
     if use_image:
         try:
