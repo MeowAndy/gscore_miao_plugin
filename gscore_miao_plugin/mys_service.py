@@ -14,8 +14,8 @@ import httpx
 from gsuid_core.bot import Bot
 from gsuid_core.models import Event
 from gsuid_core.segment import MessageSegment
-from gsuid_core.utils.api.mys_api import mys_api
 from gsuid_core.utils.api.mys.tools import get_web_ds_token
+from gsuid_core.utils.api.mys_api import mys_api
 from gsuid_core.utils.cookie_manager.qrlogin import get_qrcode_base64, refresh
 
 from .config import MiaoConfig
