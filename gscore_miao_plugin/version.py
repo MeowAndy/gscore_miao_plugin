@@ -1,6 +1,14 @@
-PLUGIN_VERSION = "0.14.4"
+PLUGIN_VERSION = "0.14.5"
 
 CHANGELOGS = [
+    {
+        "version": "0.14.5",
+        "date": "2026-04-25",
+        "items": [
+            "加长单角色面板画布高度，修复圣遗物卡片增高后底部被裁掉的问题",
+            "战技和爆发图标改为按 Yunzai miao-plugin 的 CharImg 逻辑读取，优先使用 talent-e/q，缺失时按 talentCons 回退到对应命座图标",
+        ],
+    },
     {
         "version": "0.14.4",
         "date": "2026-04-25",

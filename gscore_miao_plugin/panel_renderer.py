@@ -494,6 +494,25 @@ def _character_weapon_type(name: str) -> str:
     return weapon if weapon in {"sword", "claymore", "polearm", "bow", "catalyst"} else "sword"
 
 
+def _talent_icon_path(name: str, key: str) -> Path | None:
+    if key == "a":
+        return _resource_path("common", "item", f"atk-{_character_weapon_type(name)}.webp")
+
+    meta = _char_meta(name)
+    talent_cons = meta.get("talentCons") or {}
+    cons_idx = 0
+    if isinstance(talent_cons, dict):
+        try:
+            cons_idx = int(talent_cons.get(key) or 0)
+        except (TypeError, ValueError):
+            cons_idx = 0
+    if cons_idx > 0:
+        cons_path = _resource_path("meta-gs", "character", name, "icons", f"cons-{cons_idx}.webp")
+        if cons_path:
+            return cons_path
+    return _resource_path("meta-gs", "character", name, "icons", f"talent-{key}.webp")
+
+
 def _char_image(name: str, kind: str = "splash") -> Path | None:
     for file in (f"{kind}.webp", f"{kind}0.webp", f"{kind}.png"):
         path = _resource_path("meta-gs", "character", name, "imgs", file)
@@ -802,18 +821,13 @@ def _draw_basic_panel(img: Image.Image, draw: ImageDraw.ImageDraw, result: Panel
 
     skills = list(char.get("skill_levels") or [])[:3]
     labels = ["普攻", "战技", "爆发"]
-    weapon_type = _character_weapon_type(name)
     for idx, label in enumerate(labels):
         lv = skills[idx] if idx < len(skills) else "-"
         cx = x + 28 + idx * 82
         cy = y + 112
         draw.ellipse((cx, cy, cx + 52, cy + 52), fill=(42, 43, 48), outline=(214, 183, 112), width=2)
         icon_key = ["a", "e", "q"][idx]
-        talent_file = f"atk-{weapon_type}.webp" if icon_key == "a" else f"talent-{icon_key}.webp"
-        if icon_key == "a":
-            icon_path = _resource_path("common", "item", talent_file)
-        else:
-            icon_path = _resource_path("meta-gs", "character", name, "icons", talent_file)
+        icon_path = _talent_icon_path(name, icon_key)
         icon = _open_image(icon_path, (34, 34), contain=True)
         if icon:
             _paste(img, icon, (cx + 9, cy + 8))
@@ -1017,7 +1031,7 @@ async def render_panel_image(result: PanelResult) -> bytes:
     characters = list(_iter_cards((result.characters or [])[:8]))
     if len(characters) == 1:
         width = 600
-        height = 1480
+        height = 1760
         img = Image.new("RGBA", (width, height), (22, 23, 27, 255))
         draw = ImageDraw.Draw(img)
         bottom = _draw_miao_profile(img, draw, result, characters[0], width, height)

@@ -2,6 +2,12 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.14.5] - 2026-04-25
+
+### Fixed
+- 加长单角色面板画布高度，修复圣遗物卡片增高后底部被裁掉、图片不够长的问题。
+- 战技和爆发图标改为按 Yunzai `miao-plugin` 的 `CharImg` 逻辑读取，优先使用 `talent-e/q`，缺失时按 `talentCons` 回退到对应命座图标。
+
 ## [0.14.4] - 2026-04-25
 
 ### Fixed
