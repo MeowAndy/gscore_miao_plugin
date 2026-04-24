@@ -247,6 +247,19 @@ def _find_meta_by_id(base: str, item_id: str) -> Tuple[str, Dict[str, Any]]:
         data = _load_json(data_file)
         if str(data.get("id") or "") == target:
             return data_file.parent.name, data
+        for item in data.values():
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("id") or "") != target:
+                continue
+            name = str(item.get("name") or item.get("sName") or "").strip()
+            merged = dict(item)
+            if name:
+                detail = _load_json(data_file.parent / name / "data.json")
+                if detail:
+                    merged = {**merged, **detail}
+                return name, merged
+            return data_file.parent.name, merged
     return "", {}
 
 
@@ -441,11 +454,13 @@ def _weapon_meta(weapon: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
 
 
 def _weapon_name(weapon: Dict[str, Any]) -> str:
+    folder, data = _weapon_meta(weapon)
+    if data.get("name") or folder:
+        return str(data.get("name") or folder)
     name = _display_name(weapon.get("name"), "")
     if name:
         return name
-    folder, data = _weapon_meta(weapon)
-    return str(data.get("name") or folder or "未知武器")
+    return "未知武器"
 
 
 def _weapon_icon(weapon: Dict[str, Any]) -> Path | None:

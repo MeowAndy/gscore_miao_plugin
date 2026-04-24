@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.13.1"
+PLUGIN_VERSION = "0.13.2"
 
 CHANGELOGS = [
+    {
+        "version": "0.13.2",
+        "date": "2026-04-25",
+        "items": [
+            "修复 Enka 数字武器 ID/nameTextMapHash 导致面板图武器名显示异常的问题",
+            "兼容 Yunzai miao-plugin 的 weapon/<type>/data.json 聚合映射，按 item_id 反查具体武器目录与 icon.webp",
+            "武器名称与图标优先使用本地 miao-plugin resources/meta-gs/weapon 素材，进一步贴近原版面板资源链路",
+        ],
+    },
     {
         "version": "0.13.1",
         "date": "2026-04-25",
