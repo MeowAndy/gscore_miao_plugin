@@ -1,6 +1,16 @@
-PLUGIN_VERSION = "0.12.0"
+PLUGIN_VERSION = "0.13.0"
 
 CHANGELOGS = [
+    {
+        "version": "0.13.0",
+        "date": "2026-04-25",
+        "items": [
+            "新增米游社 Cookie 登录入口：喵喵登录 <Cookie>，可保存登录信息并自动绑定原神 UID",
+            "新增登录信息管理：喵喵查看登录、喵喵删除登录",
+            "新增原神每日签到入口：喵喵签到 [UID]，作为 miao-plugin 登录/签到能力的 GsCore 初步迁移",
+            "新增 WebUI 开关 EnableMysLogin、EnableDailySign 与登录教程配置 LoginHelpUrl",
+        ],
+    },
     {
         "version": "0.12.0",
         "date": "2026-04-25",

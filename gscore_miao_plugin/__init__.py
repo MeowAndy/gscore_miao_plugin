@@ -21,3 +21,4 @@ from .handlers import admin as _admin  # noqa: F401,E402
 from .handlers import changelog as _changelog  # noqa: F401,E402
 from .handlers import features as _features  # noqa: F401,E402
 from .handlers import help as _help  # noqa: F401,E402
+from .handlers import login as _login  # noqa: F401,E402

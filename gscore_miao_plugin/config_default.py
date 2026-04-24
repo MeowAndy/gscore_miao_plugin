@@ -75,6 +75,21 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "关闭后将不响应 伤害计算 指令",
         True,
     ),
+    "EnableMysLogin": GsBoolConfig(
+        "开启米游社登录",
+        "允许用户通过 Cookie 登录并保存到本地配置；请只在可信私聊环境使用",
+        True,
+    ),
+    "EnableDailySign": GsBoolConfig(
+        "开启米游社签到",
+        "允许已登录用户执行原神每日签到",
+        True,
+    ),
+    "LoginHelpUrl": GsStrConfig(
+        "登录教程链接",
+        "喵喵登录 未携带 Cookie 时展示的教程链接，可填自建登录页或说明文档",
+        "请私聊发送：喵喵登录 cookie_token=xxx; account_id=xxx; ltuid=xxx; ltoken=xxx",
+    ),
     "EnablePanelFallback": GsBoolConfig(
         "开启数据源降级",
         "当前数据源失败时，是否继续尝试下一个数据源",
