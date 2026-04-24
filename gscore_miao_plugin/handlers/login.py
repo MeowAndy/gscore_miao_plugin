@@ -7,7 +7,7 @@ from gsuid_core.sv import SV
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
 from ..mys_service import (daily_sign, fetch_sign_info, normalize_cookie,
-                           validate_cookie)
+                           qrcode_login_cookie, validate_cookie)
 from ..store import bind_mys_cookie, get_user_cfg, unbind_mys_cookie
 
 sv_login = SV("GsCoreMiao登录签到")
@@ -39,13 +39,20 @@ async def send_login(bot: Bot, ev: Event):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     raw = ((ev.regex_dict or {}).get("cookie") or "").strip()
     if not raw:
-        return await bot.send(
-            "【喵喵登录】\n"
-            "请在私聊中发送米游社 Cookie，例如：\n"
-            "喵喵登录 cookie_token=xxx; account_id=xxx; ltuid=xxx; ltoken=xxx\n\n"
-            f"教程：{MiaoConfig.get_config('LoginHelpUrl').data}"
-        )
-    cookie = normalize_cookie(raw)
+        if not MiaoConfig.get_config("EnableMysQrLogin").data:
+            return await bot.send(
+                "【喵喵登录】\n"
+                "扫码登录未开启，请私聊发送米游社 Cookie，例如：\n"
+                "喵喵登录 cookie_token=xxx; account_id=xxx; ltuid=xxx; ltoken=xxx\n\n"
+                f"教程：{MiaoConfig.get_config('LoginHelpUrl').data}"
+            )
+        try:
+            await bot.send("正在创建米游社扫码登录二维码，请稍等...")
+            cookie = await qrcode_login_cookie(bot, ev)
+        except Exception as e:
+            return await bot.send(f"扫码登录失败：{e}\n也可以使用：喵喵登录 <米游社Cookie>")
+    else:
+        cookie = normalize_cookie(raw)
     if "=" not in cookie:
         return await bot.send("Cookie 格式不正确，请发送 key=value; key=value 格式。")
     try:

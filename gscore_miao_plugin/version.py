@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.13.0"
+PLUGIN_VERSION = "0.13.1"
 
 CHANGELOGS = [
+    {
+        "version": "0.13.1",
+        "date": "2026-04-25",
+        "items": [
+            "新增米游社扫码登录：喵喵登录 不带 Cookie 时直接生成二维码，使用米游社 App 扫码确认后自动保存 Cookie",
+            "新增 WebUI 开关 EnableMysQrLogin，可单独控制扫码登录能力",
+            "对比确认原版 miao-plugin 本体只引用 Cookie 能力，扫码登录来自 Yunzai/GsCore 登录体系，已在 GsCore 版内置接入",
+        ],
+    },
     {
         "version": "0.13.0",
         "date": "2026-04-25",

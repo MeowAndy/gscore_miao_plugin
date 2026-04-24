@@ -80,6 +80,11 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "允许用户通过 Cookie 登录并保存到本地配置；请只在可信私聊环境使用",
         True,
     ),
+    "EnableMysQrLogin": GsBoolConfig(
+        "开启米游社扫码登录",
+        "允许用户通过米游社 App 扫码登录，自动获取并保存 Cookie",
+        True,
+    ),
     "EnableDailySign": GsBoolConfig(
         "开启米游社签到",
         "允许已登录用户执行原神每日签到",
