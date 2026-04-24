@@ -35,7 +35,7 @@ async def send_alias(bot: Bot, ev: Event):
     await bot.send(render_alias_text(name))
 
 
-@sv_feature.on_regex(r"^(圣遗物|圣遗物评分|遗物评分)\s*(?P<uid>\d{9,10})?\s*(?P<name>.*)$", block=True)
+@sv_feature.on_regex(r"^(圣遗物评分|遗物评分|圣遗物)\s*(?P<uid>\d{9,10})?\s*(?P<name>.*)$", block=True)
 async def send_artifact(bot: Bot, ev: Event):
     if not MiaoConfig.get_config("EnableArtifactScore").data:
         return
@@ -50,7 +50,7 @@ async def send_artifact(bot: Bot, ev: Event):
         await bot.send(render_artifact_text(result, name))
 
 
-@sv_feature.on_regex(r"^(伤害|伤害计算|伤害估算)\s*(?P<uid>\d{9,10})?\s*(?P<name>.*)$", block=True)
+@sv_feature.on_regex(r"^(伤害计算|伤害估算|伤害)\s*(?P<uid>\d{9,10})?\s*(?P<name>.*)$", block=True)
 async def send_damage(bot: Bot, ev: Event):
     if not MiaoConfig.get_config("EnableDamageCalc").data:
         return
