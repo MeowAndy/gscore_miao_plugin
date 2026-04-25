@@ -35,17 +35,16 @@ async def _uid_from_event(ev: Event, uid: str) -> str:
     if uid:
         return uid
     user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
+    roles = user_cfg.get("mys_roles") or []
+    if isinstance(roles, list):
+        for role in roles:
+            if isinstance(role, dict):
+                role_uid = str(role.get("game_uid") or role.get("uid") or "").strip()
+                if role_uid:
+                    return role_uid
     default_uid = str(user_cfg.get("uid") or "").strip()
     if default_uid:
         return default_uid
-    for key in ("mys_roles", "mys_sr_roles"):
-        roles = user_cfg.get(key) or []
-        if isinstance(roles, list):
-            for role in roles:
-                if isinstance(role, dict):
-                    role_uid = str(role.get("game_uid") or role.get("uid") or "").strip()
-                    if role_uid:
-                        return role_uid
     return ""
 
 
