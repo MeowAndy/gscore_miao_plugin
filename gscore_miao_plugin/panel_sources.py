@@ -339,7 +339,7 @@ def _md5(text: str) -> str:
 
 def _mys_ds(q: str = "", b: Optional[Dict[str, Any]] = None) -> str:
     salt = str(MiaoConfig.get_config("MysDsSalt").data or "xV8v4Qu54lUKrEYFZkJhB8cuOh9Asafs")
-    body = json.dumps(b, separators=(",", ":")) if b else ""
+    body = json.dumps(b) if b else ""
     t = str(int(time.time()))
     r = str(random.randint(100000, 200000))
     c = _md5(f"salt={salt}&t={t}&r={r}&b={body}&q={q}")
@@ -378,6 +378,23 @@ def _check_retcode(source: str, raw: Dict[str, Any]) -> None:
     if retcode not in (0, "0", None):
         msg = raw.get("message") or raw.get("msg") or raw.get("error") or "未知错误"
         raise PanelSourceError(source, f"接口返回 {retcode}: {msg}")
+
+
+def _retcode(raw: Dict[str, Any]) -> Any:
+    return raw.get("retcode", raw.get("code", 0))
+
+
+def _is_mys_dead_code(raw: Dict[str, Any]) -> bool:
+    return _retcode(raw) in {10035, 5003, 10041, 1034, "10035", "5003", "10041", "1034"}
+
+
+def _add_mys_challenge_headers(headers: Dict[str, str], q: str = "", b: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    fixed = dict(headers)
+    fixed["x-rpc-challenge_game"] = "2"
+    fixed["x-rpc-page"] = "v4.1.5-ys_#ys"
+    fixed["x-rpc-tool-verison"] = "v4.1.5-ys"
+    fixed["DS"] = _mys_ds(q, b)
+    return fixed
 
 
 def _http_error_message(source: str, exc: httpx.HTTPStatusError) -> str:
@@ -620,6 +637,41 @@ class MysPanelSource(BasePanelSource):
     def __init__(self, cookie: str = ""):
         self.cookie = cookie
 
+    async def _get_json_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        params: Dict[str, Any],
+        headers: Dict[str, str],
+        q: str,
+    ) -> Dict[str, Any]:
+        resp = await client.get(url, params=params, headers=headers)
+        resp.raise_for_status()
+        raw = _as_dict(resp.json())
+        if _is_mys_dead_code(raw):
+            resp = await client.get(url, params=params, headers=_add_mys_challenge_headers(headers, q))
+            resp.raise_for_status()
+            raw = _as_dict(resp.json())
+        _check_retcode(self.source_name, raw)
+        return raw
+
+    async def _post_json_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        body: Dict[str, Any],
+        headers: Dict[str, str],
+    ) -> Dict[str, Any]:
+        resp = await client.post(url, json=body, headers=headers)
+        resp.raise_for_status()
+        raw = _as_dict(resp.json())
+        if _is_mys_dead_code(raw):
+            resp = await client.post(url, json=body, headers=_add_mys_challenge_headers(headers, "", body))
+            resp.raise_for_status()
+            raw = _as_dict(resp.json())
+        _check_retcode(self.source_name, raw)
+        return raw
+
     async def fetch(self, uid: str) -> PanelResult:
         cached = get_cached_panel(self.source_name, uid)
         if cached:
@@ -636,14 +688,13 @@ class MysPanelSource(BasePanelSource):
         index_url = urljoin(f"{base_url}/", "game_record/app/genshin/api/index")
         try:
             async with httpx.AsyncClient(timeout=_timeout()) as client:
-                index_resp = await client.get(
+                index_raw = await self._get_json_with_retry(
+                    client,
                     index_url,
-                    params=index_params,
-                    headers=_mys_headers(cookie, index_q),
+                    index_params,
+                    _mys_headers(cookie, index_q),
+                    index_q,
                 )
-                index_resp.raise_for_status()
-                index_raw = _as_dict(index_resp.json())
-                _check_retcode(self.source_name, index_raw)
 
                 index_data = index_raw.get("data") if isinstance(index_raw.get("data"), dict) else {}
                 avatars = index_data.get("avatars") if isinstance(index_data, dict) else []
@@ -652,14 +703,12 @@ class MysPanelSource(BasePanelSource):
                 if character_ids:
                     detail_body = {"character_ids": character_ids, "role_id": uid, "server": server}
                     detail_url = urljoin(f"{base_url}/", "game_record/app/genshin/api/character/list")
-                    detail_resp = await client.post(
+                    detail_raw = await self._post_json_with_retry(
+                        client,
                         detail_url,
-                        json=detail_body,
-                        headers=_mys_headers(cookie, "", detail_body),
+                        detail_body,
+                        _mys_headers(cookie, "", detail_body),
                     )
-                    detail_resp.raise_for_status()
-                    detail_raw = _as_dict(detail_resp.json())
-                    _check_retcode(self.source_name, detail_raw)
 
                 raw = {"index": index_raw, "detail": detail_raw}
         except httpx.HTTPStatusError as e:
