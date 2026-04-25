@@ -21,10 +21,10 @@ from ..store import get_user_cfg
 sv_feature = SV("GsCoreMiao扩展功能")
 
 
-async def _query_user_panel(bot: Bot, ev: Event, uid: str):
+async def _query_user_panel(bot: Bot, ev: Event, uid: str, source_override: str = "", allow_fallback: bool | None = None):
     user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
-    source = str(user_cfg.get("panel_server") or "auto")
-    result, errors = await query_panel(uid, source, user_cfg)
+    source = source_override or str(user_cfg.get("panel_server") or "auto")
+    result, errors = await query_panel(uid, source, user_cfg, allow_fallback=allow_fallback)
     if result is None:
         detail = "\n".join(errors[:5]) if errors else "无可用数据源"
         await bot.send(f"面板数据查询失败。\n当前服务：{source}\n失败原因：\n{detail}")
@@ -85,7 +85,7 @@ async def send_alias(bot: Bot, ev: Event):
 
 
 @sv_feature.on_regex(
-    r"^(?!(?:更新面板|刷新面板|全部面板更新|重载面板|删除面板|解绑UID|解绑uid|角色面板图|面板图|面板列表|面板角色列表|角色列表|面板|角色面板|角色卡片|圣遗物列表|遗物列表|圣遗物评分|遗物评分|伤害计算|伤害估算)(?:\s|$))(?P<name>.+?)\s*(?P<mode>面板|面版|详情|详细|圣遗物|遗器|伤害)\s*(?P<uid>\d{9,10})?$",
+    r"^(?!(?:(?:米游社|mys)(?:全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新)|更新面板|刷新面板|全部面板更新|重载面板|删除面板|解绑UID|解绑uid|角色面板图|面板图|面板列表|面板角色列表|角色列表|面板|角色面板|角色卡片|圣遗物列表|遗物列表|圣遗物评分|遗物评分|伤害计算|伤害估算)(?:\s|$))(?P<name>.+?)\s*(?P<mode>面板|面版|详情|详细|圣遗物|遗器|伤害)\s*(?P<uid>\d{9,10})?$",
     block=True,
 )
 async def send_miao_style_profile(bot: Bot, ev: Event):
@@ -221,6 +221,24 @@ async def send_panel_update(bot: Bot, ev: Event):
             await bot.send(await render_panel_list_image(result, updated=True))
         except Exception as e:
             await bot.send(f"面板已刷新：{uid}\n数据源：{result.source}\n角色数：{len(result.characters or result.avatars or [])}\n列表图渲染失败：{e}")
+
+
+@sv_feature.on_regex(r"^(米游社|mys)(全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新)\s*(?P<uid>\d{9,10})?$", block=True)
+async def send_mys_panel_update(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnablePanelQuery").data:
+        return
+    if not can_use_plugin(ev):
+        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
+    uid = await _uid_from_event(ev, ((ev.regex_dict or {}).get("uid") or "").strip())
+    if not uid:
+        return await bot.send("请携带 UID，例如：喵喵米游社更新面板 100000001\n也可先绑定：喵喵设置uid 100000001")
+    clear_cached_panel(uid)
+    result = await _query_user_panel(bot, ev, uid, source_override="mys", allow_fallback=False)
+    if result:
+        try:
+            await bot.send(await render_panel_list_image(result, updated=True))
+        except Exception as e:
+            await bot.send(f"米游社面板已刷新：{uid}\n角色数：{len(result.characters or result.avatars or [])}\n列表图渲染失败：{e}")
 
 
 @sv_feature.on_regex(r"^(删除面板|解绑UID|解绑uid)\s*(?P<uid>\d{9,10})?$", block=True)

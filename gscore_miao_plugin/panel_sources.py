@@ -183,23 +183,140 @@ def _reliquaries_from_avatar(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
     return reliqs
 
 
+_MYS_PROP_NAMES = {
+    2: "生命值",
+    3: "生命值%",
+    5: "攻击力",
+    6: "攻击力%",
+    8: "防御力",
+    9: "防御力%",
+    20: "暴击率",
+    22: "暴击伤害",
+    23: "充能效率",
+    26: "治疗加成",
+    28: "元素精通",
+    30: "物理伤害加成",
+    40: "火元素伤害加成",
+    41: "雷元素伤害加成",
+    42: "水元素伤害加成",
+    43: "草元素伤害加成",
+    44: "风元素伤害加成",
+    45: "岩元素伤害加成",
+    46: "冰元素伤害加成",
+    2000: "生命值",
+    2001: "攻击力",
+    2002: "防御力",
+}
+
+
+def _mys_prop_name(prop: Dict[str, Any]) -> str:
+    raw_type = prop.get("property_type") or prop.get("propertyType") or prop.get("type")
+    name = _MYS_PROP_NAMES.get(_to_int(raw_type, -1))
+    return name or str(prop.get("name") or prop.get("property_name") or raw_type or "")
+
+
+def _mys_prop_value(prop: Dict[str, Any]) -> Any:
+    for key in ("final", "base", "add", "value", "val"):
+        value = prop.get(key)
+        if value not in (None, ""):
+            return value
+    return prop.get("value_str") or prop.get("valueStr")
+
+
+def _mys_fight_props(avatar: Dict[str, Any]) -> Dict[str, Any]:
+    props = _props_from_avatar(avatar)
+    for key in ("selected_properties", "base_properties", "extra_properties", "properties"):
+        values = avatar.get(key) or []
+        if not isinstance(values, list):
+            continue
+        for prop in values:
+            if not isinstance(prop, dict):
+                continue
+            name = _mys_prop_name(prop)
+            if name:
+                props[name] = _mys_prop_value(prop)
+    return props
+
+
+def _mys_skill_levels(avatar: Dict[str, Any]) -> List[int]:
+    levels: List[int] = []
+    for item in avatar.get("skills") or []:
+        if not isinstance(item, dict):
+            continue
+        if _to_int(item.get("skill_type") or item.get("skillType"), 1) != 1:
+            continue
+        level = item.get("level") or item.get("lv")
+        if level is not None:
+            levels.append(_to_int(level))
+    return levels[:3]
+
+
+def _mys_reliquaries(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
+    reliqs: List[Dict[str, Any]] = []
+    for item in avatar.get("relics") or avatar.get("reliquaries") or []:
+        if not isinstance(item, dict):
+            continue
+        main_prop = item.get("main_property") or item.get("main_prop") or item.get("main")
+        sub_props = item.get("sub_property_list") or item.get("sub_props") or item.get("subProperties") or []
+        item_set = item.get("set") or {}
+        reliqs.append(
+            {
+                "item_id": item.get("id") or item.get("item_id") or item.get("itemId"),
+                "name": item.get("name"),
+                "set_name": item_set.get("name") if isinstance(item_set, dict) else item.get("set_name"),
+                "pos": item.get("pos") or item.get("idx") or item.get("equipType"),
+                "level": min(20, _to_int(item.get("level") or item.get("lv"))),
+                "rarity": item.get("rarity") or item.get("star"),
+                "main_prop": main_prop,
+                "sub_props": sub_props,
+            }
+        )
+    return reliqs
+
+
+def _characters_from_mys_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    characters: List[Dict[str, Any]] = []
+    for avatar in avatars:
+        if not isinstance(avatar, dict):
+            continue
+        base = avatar.get("base") if isinstance(avatar.get("base"), dict) else avatar
+        characters.append(
+            {
+                "avatar_id": base.get("id") or avatar.get("id") or avatar.get("avatar_id") or avatar.get("avatarId"),
+                "name": base.get("name") or _name_from_avatar(avatar),
+                "element": base.get("element") or avatar.get("element"),
+                "rarity": base.get("rarity") or avatar.get("rarity"),
+                "level": base.get("level") or avatar.get("level") or avatar.get("lv"),
+                "promote_level": base.get("promote_level") or avatar.get("promote") or avatar.get("promote_level"),
+                "constellation": base.get("actived_constellation_num") or avatar.get("actived_constellation_num") or avatar.get("cons") or avatar.get("constellation"),
+                "friendship": base.get("fetter") or avatar.get("fetter") or avatar.get("friendship"),
+                "skill_levels": _mys_skill_levels(avatar) or avatar.get("skill_levels") or avatar.get("talent") or avatar.get("talents") or [],
+                "weapon": _weapon_from_avatar(avatar),
+                "reliquaries": _mys_reliquaries(avatar) or _reliquaries_from_avatar(avatar),
+                "fight_props": _mys_fight_props(avatar),
+            }
+        )
+    return characters
+
+
 def _characters_from_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     characters: List[Dict[str, Any]] = []
     for avatar in avatars:
         if not isinstance(avatar, dict):
             continue
+        base = avatar.get("base") if isinstance(avatar.get("base"), dict) else avatar
         characters.append(
             {
-                "avatar_id": avatar.get("id") or avatar.get("avatar_id") or avatar.get("avatarId"),
-                "name": _name_from_avatar(avatar),
-                "level": avatar.get("level") or avatar.get("lv"),
-                "promote_level": avatar.get("promote") or avatar.get("promote_level"),
-                "constellation": avatar.get("cons") or avatar.get("constellation") or avatar.get("actived_constellation_num"),
-                "friendship": avatar.get("fetter") or avatar.get("friendship"),
-                "skill_levels": avatar.get("skill_levels") or avatar.get("talent") or avatar.get("talents") or [],
+                "avatar_id": base.get("id") or avatar.get("id") or avatar.get("avatar_id") or avatar.get("avatarId"),
+                "name": base.get("name") or _name_from_avatar(avatar),
+                "level": base.get("level") or avatar.get("level") or avatar.get("lv"),
+                "promote_level": base.get("promote_level") or avatar.get("promote") or avatar.get("promote_level"),
+                "constellation": base.get("actived_constellation_num") or avatar.get("cons") or avatar.get("constellation") or avatar.get("actived_constellation_num"),
+                "friendship": base.get("fetter") or avatar.get("fetter") or avatar.get("friendship"),
+                "skill_levels": _mys_skill_levels(avatar) or avatar.get("skill_levels") or avatar.get("talent") or avatar.get("talents") or [],
                 "weapon": _weapon_from_avatar(avatar),
-                "reliquaries": _reliquaries_from_avatar(avatar),
-                "fight_props": _props_from_avatar(avatar),
+                "reliquaries": _mys_reliquaries(avatar) or _reliquaries_from_avatar(avatar),
+                "fight_props": _mys_fight_props(avatar),
             }
         )
     return characters
@@ -561,7 +678,7 @@ class MysPanelSource(BasePanelSource):
             level=(data.get("role") or {}).get("level"),
             signature="",
             avatars=data.get("avatars") or [],
-            characters=_characters_from_avatars(data.get("avatars") or []),
+            characters=_characters_from_mys_avatars(data.get("avatars") or []),
         )
         set_cached_panel(self.source_name, uid, result)
         return result
