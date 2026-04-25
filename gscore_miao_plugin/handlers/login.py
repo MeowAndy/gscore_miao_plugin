@@ -52,6 +52,20 @@ def _role_uids(roles: list[dict], uid: str = "") -> list[str]:
     return uids
 
 
+def get_sign_uids_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[list[str], list[str]]:
+    specified_uid = (specified_uid or "").strip()
+    default_uid = str(cfg.get("uid") or "").strip()
+    gs_roles = cfg.get("mys_roles") or []
+    sr_roles = cfg.get("mys_sr_roles") or []
+    gs_uids = _role_uids(gs_roles, specified_uid)
+    if not specified_uid and not gs_uids and default_uid:
+        picked_uid = _pick_role_uid(gs_roles, default_uid)
+        if picked_uid:
+            gs_uids = [picked_uid]
+    sr_uids = _role_uids(sr_roles, specified_uid)
+    return gs_uids, sr_uids
+
+
 def _mask_cookie(cookie: str) -> str:
     if len(cookie) <= 16:
         return "已保存"
@@ -62,22 +76,15 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
     cookie = str(cfg.get("mys_cookie") or "")
     if not cookie:
         return [], ["当前未登录"]
-    specified_uid = (specified_uid or "").strip()
-    default_uid = str(cfg.get("uid") or "").strip()
-    gs_roles = cfg.get("mys_roles") or []
     sr_roles = cfg.get("mys_sr_roles") or []
     if not sr_roles:
         try:
             sr_roles = await fetch_starrail_roles(cookie)
+            cfg = {**cfg, "mys_sr_roles": sr_roles}
         except Exception:
             sr_roles = []
 
-    gs_uids = _role_uids(gs_roles, specified_uid)
-    if not specified_uid and not gs_uids and default_uid:
-        picked_uid = _pick_role_uid(gs_roles, default_uid)
-        if picked_uid:
-            gs_uids = [picked_uid]
-    sr_uids = _role_uids(sr_roles, specified_uid)
+    gs_uids, sr_uids = get_sign_uids_for_cfg(cfg, specified_uid)
     sections: list[str] = []
     errors: list[str] = []
 

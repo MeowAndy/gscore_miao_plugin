@@ -8,7 +8,8 @@ from gsuid_core.logger import logger
 from gsuid_core.subscribe import gs_subscribe
 
 from .config import MiaoConfig
-from .handlers.login import run_daily_sign_for_cfg
+from .handlers.login import get_sign_uids_for_cfg, run_daily_sign_for_cfg
+from .mys_service import fetch_starrail_roles
 from .settings import merge_user_cfg
 from .store import get_all_user_cfg
 
@@ -16,6 +17,10 @@ _JOB_ID = "gscore_miao_auto_daily_sign"
 SIGN_RESULT_SUBSCRIBE = "喵喵签到结果"
 _SIGN_LOCK = asyncio.Lock()
 _LAST_RUN_DATE = ""
+
+
+def _empty_stat() -> dict[str, int]:
+    return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
 
 
 def _sign_time() -> tuple[int, int]:
@@ -36,11 +41,9 @@ async def auto_daily_sign_task(sign_all: bool = False) -> str:
 
     async with _SIGN_LOCK:
         all_cfg = await get_all_user_cfg()
-        total = 0
-        success = 0
-        failed = 0
-        skipped = 0
-        messages: list[str] = []
+        stats = {"原神": _empty_stat(), "崩铁": _empty_stat()}
+        skip_reasons: list[str] = []
+        error_messages: list[str] = []
 
         for key, raw_cfg in all_cfg.items():
             if not isinstance(raw_cfg, dict):
@@ -48,31 +51,68 @@ async def auto_daily_sign_task(sign_all: bool = False) -> str:
             cfg = merge_user_cfg(raw_cfg)
             if not sign_all and not cfg.get("auto_daily_sign"):
                 continue
-            total += 1
+            user_key = str(key).split(":", 1)[-1]
             cookie = str(cfg.get("mys_cookie") or "")
+            if cookie and not cfg.get("mys_sr_roles"):
+                try:
+                    cfg = {**cfg, "mys_sr_roles": await fetch_starrail_roles(cookie)}
+                except Exception:
+                    pass
+            gs_uids, sr_uids = get_sign_uids_for_cfg(cfg)
+            stats["原神"]["total"] += len(gs_uids)
+            stats["崩铁"]["total"] += len(sr_uids)
             if not cookie:
-                skipped += 1
+                for game_name, uids in (("原神", gs_uids), ("崩铁", sr_uids)):
+                    stats[game_name]["skipped"] += len(uids)
+                    if uids:
+                        skip_reasons.append(f"{game_name} {user_key}：未登录米游社 Cookie")
+                if not gs_uids and not sr_uids:
+                    skip_reasons.append(f"{user_key}：未登录米游社 Cookie，且没有可签到 UID")
+                continue
+            if not gs_uids and not sr_uids:
+                skip_reasons.append(f"{user_key}：没有可签到的原神或崩铁 UID")
                 continue
             try:
                 sections, errors = await run_daily_sign_for_cfg(cfg)
-                if sections:
-                    success += 1
+                gs_done = sum(1 for section in sections if section.startswith("【原神签到】"))
+                sr_done = sum(1 for section in sections if section.startswith("【崩铁签到】"))
+                gs_failed = sum(1 for error in errors if error.startswith("原神 "))
+                sr_failed = sum(1 for error in errors if error.startswith("崩铁 "))
+                stats["原神"]["success"] += gs_done
+                stats["崩铁"]["success"] += sr_done
+                stats["原神"]["failed"] += gs_failed
+                stats["崩铁"]["failed"] += sr_failed
+                stats["原神"]["skipped"] += max(0, len(gs_uids) - gs_done - gs_failed)
+                stats["崩铁"]["skipped"] += max(0, len(sr_uids) - sr_done - sr_failed)
+                if len(gs_uids) > gs_done + gs_failed:
+                    skip_reasons.append(f"原神 {user_key}：未返回签到结果")
+                if len(sr_uids) > sr_done + sr_failed:
+                    skip_reasons.append(f"崩铁 {user_key}：未返回签到结果")
                 if errors:
-                    failed += 1
-                user_key = str(key).split(":", 1)[-1]
-                if errors:
-                    messages.append(f"{user_key}: " + "；".join(errors[:3]))
+                    error_messages.append(f"{user_key}: " + "；".join(errors[:3]))
                 await asyncio.sleep(1)
             except Exception as e:
-                failed += 1
-                user_key = str(key).split(":", 1)[-1]
-                messages.append(f"{user_key}: {e}")
+                stats["原神"]["failed"] += len(gs_uids)
+                stats["崩铁"]["failed"] += len(sr_uids)
+                error_messages.append(f"{user_key}: {e}")
 
         title = "喵喵全部签到" if sign_all else "喵喵自动签到"
-        total_label = "账号" if sign_all else "开启"
-        summary = f"[{title}] 执行完成：{total_label} {total} 个，成功 {success} 个，失败 {failed} 个，跳过 {skipped} 个"
-        if messages:
-            summary += "\n" + "\n".join(messages[:10])
+        summary_lines = [
+            f"✅ [{title}] 执行完成：",
+            f"🎮 原神账号 {stats['原神']['total']} 个",
+            f"✅ 成功 {stats['原神']['success']} 个",
+            f"❌ 失败 {stats['原神']['failed']} 个",
+            f"⏭️ 跳过 {stats['原神']['skipped']} 个",
+            f"🚆 崩铁账号 {stats['崩铁']['total']} 个",
+            f"✅ 成功 {stats['崩铁']['success']} 个",
+            f"❌ 失败 {stats['崩铁']['failed']} 个",
+            f"⏭️ 跳过 {stats['崩铁']['skipped']} 个",
+        ]
+        if skip_reasons:
+            summary_lines.append("📝 跳过原因：" + "；".join(skip_reasons[:5]))
+        if error_messages:
+            summary_lines.append("⚠️ 失败详情：" + "；".join(error_messages[:5]))
+        summary = "\n".join(summary_lines)
         logger.info(summary)
         return summary
 
