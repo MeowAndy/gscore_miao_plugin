@@ -1244,16 +1244,16 @@ def _artifact_prop_score_text(prop: Any, weight: Dict[str, float], game: str = "
     try:
         from .artifact_service import _prop_key, _prop_score
         key = _prop_key(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or prop.get("field") or prop.get("type") or prop.get("mainPropId") or prop.get("name"))
-        if not key or weight.get(key, 0) <= 0:
-            return ""
         score = prop.get("score")
         if score in (None, ""):
             from .artifact_service import MAX_SUB_VALUE, SR_MAX_SUB_VALUE
             score = _prop_score(prop, weight, max_values=SR_MAX_SUB_VALUE if game == "sr" else MAX_SUB_VALUE)
         score_num = float(score)
-        return f" +{score_num:.1f}分" if score_num > 0 else ""
+        if not key or weight.get(key, 0) <= 0:
+            score_num = 0.0
+        return f"+{max(score_num, 0.0):.1f}分"
     except Exception:
-        return ""
+        return "+0.0分"
 
 
 def _artifact_prop_parts(prop: Any, weight: Dict[str, float] | None = None, game: str = "gs") -> Tuple[str, str]:

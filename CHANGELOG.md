@@ -2,6 +2,12 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.15.6] - 2026-04-26
+
+### Fixed
+- 圣遗物/遗器副词条评分改为每条都显示，无效词条统一显示 `+0.0分`。
+- 对齐 miao-plugin 的评分展示习惯，避免部分副词条评分区域留空影响观感。
+
 ## [0.15.5] - 2026-04-26
 
 ### Fixed
