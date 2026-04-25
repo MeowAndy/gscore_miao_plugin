@@ -501,12 +501,18 @@ def _draw_profile_list_card(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int,
     _rounded_r(draw, box, 12, (*fill, 214), (*outline, 190), 1)
 
 
-def _draw_rank_sprite(img: Image.Image, char: Dict[str, Any], x: int, y: int, size: int) -> None:
-    path = _resource_path("character", "imgs", "dmg-rank-bg.png")
+def _rank_sprite(char: Dict[str, Any], size: int) -> Optional[Image.Image]:
+    path = _resource_path("character", "imgs", "dmg-rank-bg.png" if _char_star(char) >= 5 else "mark-rank-bg.png")
     sprite = _open_image(path)
     if sprite:
         frame_w = sprite.width // 5
-        crop = sprite.crop((frame_w * 4, 0, frame_w * 5, sprite.height)).resize((size, size), Image.Resampling.BICUBIC)
+        rank_index = 1 if _char_star(char) >= 5 else 4
+        return sprite.crop((frame_w * rank_index, 0, frame_w * (rank_index + 1), sprite.height)).resize((size, size), Image.Resampling.BICUBIC)
+
+
+def _draw_rank_sprite(img: Image.Image, char: Dict[str, Any], x: int, y: int, size: int) -> None:
+    crop = _rank_sprite(char, size)
+    if crop:
         img.alpha_composite(crop, (x, y))
     draw = ImageDraw.Draw(img)
     text = "最强" if _char_star(char) >= 5 else "最高分"
@@ -518,16 +524,24 @@ def _draw_profile_avatar(img: Image.Image, draw: ImageDraw.ImageDraw, char: Dict
     name = _char_name(char)
     size = 82
     face = _avatar_circle(_char_face_path(name), size)
-    rank_bg_y = y + size - 27
-    draw.ellipse((x - 3, rank_bg_y - 5, x + size + 3, rank_bg_y + 31), fill=(227, 125, 47))
+    rank_size = 94
+    rank_x = x - 6
+    rank_y = y - 6
+    rank_bg = _rank_sprite(char, rank_size)
+    if rank_bg:
+        img.alpha_composite(rank_bg, (rank_x, rank_y))
     draw.ellipse((x, y, x + size, y + size), fill=_star_color(_char_star(char)), outline=(255, 255, 255), width=2)
     if face:
         img.alpha_composite(face, (x, y))
     else:
         _text(draw, (x + 25, y + 20), name[:1] or "?", (255, 245, 225), FONT_CARD_TITLE)
+    if rank_bg:
+        label_h = 31
+        label = rank_bg.crop((0, rank_size - label_h, rank_size, rank_size))
+        img.alpha_composite(label, (rank_x, rank_y + rank_size - label_h))
     text = "最强" if _char_star(char) >= 5 else "最高分"
     tb = draw.textbbox((0, 0), text, font=FONT_PROFILE_CONS)
-    _text(draw, (x + (size - (tb[2] - tb[0])) // 2, y + size - 23), text, (255, 255, 255), FONT_PROFILE_CONS)
+    _shadow_text(draw, (x + (size - (tb[2] - tb[0])) // 2, y + size - 22), text, (255, 238, 212), FONT_PROFILE_CONS)
     name_text = _fit_text(name, 5)
     cons = _safe(char.get("constellation"), "0")
     ny = y + size + 7
