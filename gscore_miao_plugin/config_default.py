@@ -8,7 +8,7 @@ from gsuid_core.utils.plugins_config.models import (GSC, GsBoolConfig,
 CONFIG_DEFAULT: Dict[str, GSC] = {
     "EnableHelp": GsBoolConfig(
         "开启帮助指令",
-        "关闭后将不响应 原神帮助/原神菜单 指令",
+        "关闭后将不响应 原神帮助/原神菜单/崩铁帮助/崩铁菜单 指令",
         True,
     ),
     "EnableVersion": GsBoolConfig(

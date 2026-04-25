@@ -4,7 +4,7 @@ from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
-from ..help_data import HELP_GROUPS
+from ..help_data import HELP_GROUPS, STAR_RAIL_HELP_GROUPS
 from ..panel_renderer import render_help_image, render_panel_image
 from ..panel_service import query_panel, render_panel_text
 from ..settings import merge_user_cfg
@@ -18,10 +18,10 @@ def _cmd_prefix() -> str:
     return str(MiaoConfig.get_config("CommandPrefix").data or "喵喵").strip() or "喵喵"
 
 
-def _help_groups_for_display(setting_export: bool, setting_reset: bool):
+def _help_groups_for_display(source_groups, setting_export: bool, setting_reset: bool):
     prefix = _cmd_prefix()
     groups = []
-    for group in HELP_GROUPS:
+    for group in source_groups:
         items = []
         for item in group["items"]:
             cmd = item["cmd"].replace("{prefix}", prefix)
@@ -45,7 +45,39 @@ async def send_help(bot: Bot, ev: Event):
     subtitle = MiaoConfig.get_config("HelpSubTitle").data
     setting_export = MiaoConfig.get_config("EnableSettingExport").data
     setting_reset = MiaoConfig.get_config("EnableSettingReset").data
-    groups = _help_groups_for_display(bool(setting_export), bool(setting_reset))
+    groups = _help_groups_for_display(HELP_GROUPS, bool(setting_export), bool(setting_reset))
+
+    if str(MiaoConfig.get_config("HelpRenderMode").data or "image") == "image":
+        try:
+            return await bot.send(await render_help_image(str(title), str(subtitle), groups, _cmd_prefix()))
+        except Exception as e:
+            lines = [f"帮助图片渲染失败，已回退文本：{e}", ""]
+    else:
+        lines = []
+
+    lines.extend([f"{title}", f"{subtitle}", ""])
+    idx = 1
+    for group in groups:
+        lines.append(f"【{group['group']}】")
+        for item in group["items"]:
+            cmd = item["cmd"]
+            lines.append(f"{idx}) {cmd} - {item['desc']}")
+            idx += 1
+        lines.append("")
+    msg = "\n".join(lines).strip()
+    await bot.send(msg)
+
+
+@sv_help.on_fullmatch(("崩铁帮助", "崩铁菜单"), block=True)
+async def send_starrail_help(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnableHelp").data:
+        return
+    if not can_use_plugin(ev):
+        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
+
+    title = "喵喵崩铁帮助（GsCore）"
+    subtitle = "崩坏：星穹铁道功能导航 · 基于 miao-plugin StarRail 命令梳理"
+    groups = _help_groups_for_display(STAR_RAIL_HELP_GROUPS, True, True)
 
     if str(MiaoConfig.get_config("HelpRenderMode").data or "image") == "image":
         try:
