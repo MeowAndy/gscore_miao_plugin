@@ -46,6 +46,17 @@ def _date_range(days_before: int = 7, days_after: int = 13) -> Tuple[datetime, d
     return start, end
 
 
+def _headers() -> Dict[str, str]:
+    return {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Origin": "https://webstatic.mihoyo.com",
+        "Referer": "https://webstatic.mihoyo.com/",
+    }
+
+
 def _flatten_announcements(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
     data = raw.get("data") or {}
     result: List[Dict[str, Any]] = []
@@ -119,7 +130,7 @@ def _build_items(raw: Dict[str, Any], game: str, list_mode: bool) -> List[Dict[s
         )
     priority = {"角色跃迁": 0, "角色祈愿": 0, "光锥跃迁": 1, "武器祈愿": 1, "活动": 2, "纪行": 3, "无名勋礼": 3}
     items.sort(key=lambda x: (priority.get(str(x["type"]), 9), x["start"], x["end"]))
-    return items[:24 if list_mode else 14]
+    return items
 
 
 async def fetch_calendar(game: str = "sr", list_mode: bool = False) -> Dict[str, Any]:
@@ -154,10 +165,10 @@ async def fetch_calendar(game: str = "sr", list_mode: bool = False) -> Dict[str,
             "sign_type": "2",
             "uid": "100000000",
         }
-    async with httpx.AsyncClient(timeout=_timeout()) as client:
-        resp = await client.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"})
+    async with httpx.AsyncClient(timeout=_timeout(), follow_redirects=True) as client:
+        resp = await client.get(url, params=params, headers=_headers())
         resp.raise_for_status()
         raw = resp.json()
     if raw.get("retcode") not in (0, "0"):
-        raise RuntimeError(str(raw.get("message") or raw.get("msg") or "公告接口返回异常"))
+        raise RuntimeError(str(raw.get("message") or raw.get("msg") or f"公告接口返回异常：{raw.get('retcode')}"))
     return {"game": game, "items": _build_items(raw, game, list_mode), "list_mode": list_mode}

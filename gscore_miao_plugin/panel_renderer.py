@@ -1480,6 +1480,9 @@ async def render_help_image(title: str, subtitle: str, groups: List[Dict[str, An
 async def render_calendar_image(cal_data: Dict[str, Any]) -> bytes:
     items = list(cal_data.get("items") or [])
     game = str(cal_data.get("game") or "sr")
+    page = int(cal_data.get("page") or 1)
+    total_pages = int(cal_data.get("total_pages") or 1)
+    total_items = int(cal_data.get("total_items") or len(items))
     title = "喵喵崩铁活动日历" if game == "sr" else "喵喵原神活动日历"
     subtitle = "星穹铁道公告与跃迁日程" if game == "sr" else "原神公告与祈愿日程"
     width = 1080
@@ -1496,7 +1499,8 @@ async def render_calendar_image(cal_data: Dict[str, Any]) -> bytes:
     draw.ellipse((-220, 120, 320, 660), fill=(88, 123, 190, 42))
     _text(draw, (64, 50), title, (255, 247, 222), FONT_HELP_TITLE)
     _text(draw, (68, 116), subtitle, (220, 228, 244), FONT_SUBTITLE)
-    _text(draw, (68, 154), f"更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M')} · 数据来自米游社公告", (170, 182, 207), FONT_SMALL)
+    page_info = f"第 {page}/{total_pages} 页 · 共 {total_items} 条"
+    _text(draw, (68, 154), f"更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M')} · {page_info} · 数据来自米游社公告", (170, 182, 207), FONT_SMALL)
 
     y = 220
     if not items:
@@ -1516,5 +1520,22 @@ async def render_calendar_image(cal_data: Dict[str, Any]) -> bytes:
         end_text = end.strftime("%m-%d %H:%M") if hasattr(end, "strftime") else str(end or "-")
         _text(draw, (216, y + 44), f"{type_name} · {start_text} ~ {end_text}", (185, 197, 220), FONT_HELP_DESC)
         y += row_h
-    _text(draw, (64, height - 44), "提示：发送 日历列表 可查看更多公告条目", (150, 163, 190), FONT_TINY)
+    _text(draw, (64, height - 44), "提示：日历已按页完整输出，列表模式会保留近期已结束条目", (150, 163, 190), FONT_TINY)
     return await convert_img(img)
+
+
+async def render_calendar_images(cal_data: Dict[str, Any], page_size: int = 12) -> List[bytes]:
+    items = list(cal_data.get("items") or [])
+    page_size = max(int(page_size or 12), 1)
+    pages = [items[i:i + page_size] for i in range(0, len(items), page_size)] or [[]]
+    images: List[bytes] = []
+    for idx, page_items in enumerate(pages, start=1):
+        page_data = {
+            **cal_data,
+            "items": page_items,
+            "page": idx,
+            "total_pages": len(pages),
+            "total_items": len(items),
+        }
+        images.append(await render_calendar_image(page_data))
+    return images

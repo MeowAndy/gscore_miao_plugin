@@ -184,11 +184,24 @@ async def send_login_info(bot: Bot, ev: Event):
     sr_roles = cfg.get("mys_sr_roles") or []
     if not cookie:
         return await bot.send("当前未登录。请私聊发送：喵喵登录 <米游社Cookie>")
+    gs_uid = str(cfg.get("uid") or "").strip()
+    sr_uid = str(cfg.get("sr_uid") or "").strip()
+    patch: dict[str, str] = {}
+    if not gs_uid and roles:
+        gs_uid = _role_uid(roles[0]).strip()
+        if gs_uid:
+            patch["uid"] = gs_uid
+    if not sr_uid and sr_roles:
+        sr_uid = _role_uid(sr_roles[0]).strip()
+        if sr_uid:
+            patch["sr_uid"] = sr_uid
+    if patch:
+        await set_user_cfg(ev.user_id, ev.bot_id, patch)
     lines = [
         "【喵喵登录信息】",
         f"Cookie：{_mask_cookie(cookie)}",
-        f"原神默认 UID：{cfg.get('uid') or '-'}",
-        f"崩铁默认 UID：{cfg.get('sr_uid') or '-'}",
+        f"原神默认 UID：{gs_uid or '-'}",
+        f"崩铁默认 UID：{sr_uid or '-'}",
     ]
     if roles:
         lines.append("绑定原神角色：")
