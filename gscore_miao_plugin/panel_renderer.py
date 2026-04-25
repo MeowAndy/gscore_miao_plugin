@@ -160,6 +160,14 @@ PROP_NAME_MAP: Dict[str, str] = {
     "effDef": "效果抵抗",
     "energy_recharge": "能量恢复效率",
     "recharge": "能量恢复效率",
+    "break_dmg": "击破特攻",
+    "breakDamage": "击破特攻",
+    "crit_rate": "暴击率",
+    "critRate": "暴击率",
+    "crit_dmg": "暴击伤害",
+    "critDamage": "暴击伤害",
+    "effect_hit_rate": "效果命中",
+    "effect_resistance": "效果抵抗",
     "dmg": "伤害加成",
     "cpct": "暴击率",
     "cdmg": "暴击伤害",
@@ -499,6 +507,50 @@ def _fmt(value: Any, suffix: str = "") -> str:
     return f"{number:.1f}{suffix}"
 
 
+def _fmt_attr_value(label: str, value: Any) -> str:
+    if value is None or value == "":
+        return "-"
+    if isinstance(value, dict):
+        value = value.get("display") or value.get("value_str") or value.get("valueStr") or value.get("formatted") or value.get("value") or value.get("val") or value.get("total")
+    text = str(value).strip()
+    if not text:
+        return "-"
+    if text.endswith("%"):
+        return text
+    try:
+        num = float(text)
+    except (TypeError, ValueError):
+        return text
+    pct_labels = ("暴击", "伤害加成", "击破", "效果", "充能", "恢复", "治疗")
+    if any(key in label for key in pct_labels):
+        if 0 < abs(num) < 1:
+            num *= 100
+        return _fmt(num, "%")
+    return _fmt(num)
+
+
+def _first_prop(props: Dict[str, Any], *keys: str) -> Any:
+    aliases = {
+        "生命值": ("生命值", "HP", "hp", "max_hp", "maxHp"),
+        "攻击力": ("攻击力", "ATK", "atk", "attack"),
+        "防御力": ("防御力", "DEF", "def", "defense"),
+        "速度": ("速度", "speed", "spd"),
+        "暴击率": ("暴击率", "cpct", "crit_rate", "critRate"),
+        "暴击伤害": ("暴击伤害", "cdmg", "crit_dmg", "critDamage"),
+        "伤害加成": ("伤害加成", "元素伤害加成", "dmg", "damage", "element_dmg"),
+        "击破特攻": ("击破特攻", "stance", "break_effect", "breakEffect", "break_dmg", "breakDamage"),
+        "效果命中": ("效果命中", "effPct", "effect_hit", "effectHitRate", "effect_hit_rate"),
+        "效果抵抗": ("效果抵抗", "effDef", "effect_res", "effectRes", "effect_resistance"),
+        "元素精通": ("元素精通", "mastery", "element_mastery"),
+        "充能效率": ("充能效率", "元素充能", "recharge", "energy_recharge"),
+    }
+    for key in keys:
+        for candidate in aliases.get(key, (key,)):
+            if candidate in props and props[candidate] not in (None, ""):
+                return props[candidate]
+    return None
+
+
 def _stat_line(label: str, value: Any) -> str:
     return f"{label} {_safe(value)}"
 
@@ -823,6 +875,26 @@ def _talent_icon_path(name: str, key: str, game: str = "gs") -> Path | None:
     return _resource_path("meta-sr" if game == "sr" else "meta-gs", "character", name, "imgs" if game == "sr" else "icons", f"talent-{key}.webp")
 
 
+def _cons_icon_path(name: str, idx: int, game: str = "gs") -> Path | None:
+    base = "meta-sr" if game == "sr" else "meta-gs"
+    folders = ("imgs", "icons") if game == "sr" else ("icons", "imgs")
+    for folder in folders:
+        path = _resource_path(base, "character", name, folder, f"cons-{idx}.webp")
+        if path:
+            return path
+    if game != "sr":
+        return None
+    meta = _char_meta(name, game)
+    talent_cons = meta.get("talentCons") or {}
+    if isinstance(talent_cons, dict):
+        mapped = talent_cons.get(str(idx))
+        if mapped:
+            path = _resource_path(base, "character", name, "imgs", f"talent-{mapped}.webp")
+            if path:
+                return path
+    return None
+
+
 def _char_image(name: str, kind: str = "splash", game: str = "gs") -> Path | None:
     for file in (f"{kind}.webp", f"{kind}0.webp", f"{kind}.png"):
         path = _resource_path("meta-sr" if game == "sr" else "meta-gs", "character", name, "imgs", file)
@@ -1073,7 +1145,7 @@ def _artifact_name(rel: Dict[str, Any], fallback: str) -> str:
 
 def _prop_name(value: Any) -> str:
     if isinstance(value, dict):
-        value = value.get("appendPropId") or value.get("prop_id") or value.get("key") or value.get("mainPropId")
+        value = value.get("name") or value.get("title") or value.get("appendPropId") or value.get("prop_id") or value.get("key") or value.get("type") or value.get("mainPropId")
     text = str(value or "").strip()
     if not text:
         return "主词条"
@@ -1088,25 +1160,49 @@ def _prop_name(value: Any) -> str:
 def _prop_value(value: Any) -> str:
     if not isinstance(value, dict):
         return ""
-    raw = value.get("value") or value.get("val") or value.get("statValue")
+    raw = value.get("display") or value.get("value_str") or value.get("valueStr") or value.get("formatted") or value.get("value") or value.get("val") or value.get("statValue") or value.get("base")
     if raw is None or raw == "":
         return ""
+    raw_text = str(raw).strip()
+    if raw_text.endswith("%"):
+        return raw_text
     try:
         num = float(raw)
     except (TypeError, ValueError):
         return str(raw)
-    key = str(value.get("appendPropId") or value.get("prop_id") or value.get("key") or value.get("mainPropId") or "").upper()
-    suffix = "%" if any(x in key for x in ["PERCENT", "CRITICAL", "HURT", "CHARGE", "ADD", "HEAL", "CPCT", "CDMG", "RECHARGE", "DMG", "EFFECT", "EFF", "BREAK", "STANCE"]) else ""
+    key = str(value.get("appendPropId") or value.get("prop_id") or value.get("key") or value.get("type") or value.get("mainPropId") or value.get("name") or "").upper()
+    suffix = "%" if any(x in key for x in ["PERCENT", "CRITICAL", "CRIT", "HURT", "CHARGE", "ADD", "HEAL", "CPCT", "CDMG", "RECHARGE", "DMG", "DAMAGE", "EFFECT", "EFF", "BREAK", "STANCE"]) or any(x in key for x in ["暴击", "伤害", "击破", "效果", "充能", "治疗"]) else ""
+    if suffix and 0 < abs(num) < 1:
+        num *= 100
     if abs(num - round(num)) < 0.01:
         return f"{round(num)}{suffix}"
     return f"{num:.1f}{suffix}"
 
 
-def _artifact_prop_line(prop: Any) -> str:
+def _artifact_prop_score_text(prop: Any, weight: Dict[str, float], game: str = "gs") -> str:
+    if not isinstance(prop, dict):
+        return ""
+    try:
+        from .artifact_service import _prop_key, _prop_score
+        key = _prop_key(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or prop.get("type") or prop.get("mainPropId") or prop.get("name"))
+        if not key or weight.get(key, 0) <= 0:
+            return ""
+        score = prop.get("score")
+        if score in (None, ""):
+            from .artifact_service import MAX_SUB_VALUE, SR_MAX_SUB_VALUE
+            score = _prop_score(prop, weight, max_values=SR_MAX_SUB_VALUE if game == "sr" else MAX_SUB_VALUE)
+        score_num = float(score)
+        return f" +{score_num:.1f}分" if score_num > 0 else ""
+    except Exception:
+        return ""
+
+
+def _artifact_prop_line(prop: Any, weight: Dict[str, float] | None = None, game: str = "gs") -> str:
     if isinstance(prop, dict):
         pn = _prop_name(prop)
         pv = _prop_value(prop)
-        return f"{pn}+{pv}" if pv else pn
+        score = _artifact_prop_score_text(prop, weight or {}, game) if weight else ""
+        return f"{pn}+{pv}{score}" if pv else f"{pn}{score}"
     return _prop_name(prop)
 
 
@@ -1213,14 +1309,14 @@ def _draw_basic_panel(img: Image.Image, draw: ImageDraw.ImageDraw, result: Panel
         _text(draw, (cx + 42 - lv_w // 2, cy + 35), lv_text, (255, 245, 220), FONT_TINY)
         _text(draw, (cx + 8, cy + 62), label, (202, 195, 180), FONT_TINY)
 
-    _text(draw, (x + 318, y + 104), "星魂" if is_sr else "命座", (202, 195, 180), FONT_TINY)
+    _text(draw, (x + 318, y + 92), "星魂" if is_sr else "命座", (202, 195, 180), FONT_TINY)
     for idx in range(6):
         row = idx // 3
         col = idx % 3
-        size = 42 if is_sr else 36
+        size = 40 if is_sr else 36
         cx = x + 324 + col * 58
-        cy = y + 122 + row * 46
-        icon_path = _resource_path("meta-sr" if is_sr else "meta-gs", "character", name, "icons", f"cons-{idx + 1}.webp")
+        cy = y + 108 + row * 42
+        icon_path = _cons_icon_path(name, idx + 1, result.game)
         icon = _open_image(icon_path, (size, size), contain=True)
         active = cons is not None and idx < int(cons)
         draw.ellipse((cx, cy, cx + size, cy + size), fill=(42, 43, 48), outline=(245, 230, 190), width=2 if active else 1)
@@ -1247,16 +1343,16 @@ def _draw_attrs(draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
     is_sr = char.get("game") == "sr"
     if is_sr:
         attrs = [
-            ("生命值", props.get("生命值") or props.get("HP") or props.get("hp")),
-            ("攻击力", props.get("攻击力") or props.get("atk")),
-            ("防御力", props.get("防御力") or props.get("def")),
-            ("速度", props.get("速度") or props.get("speed") or props.get("spd")),
-            ("暴击率", _fmt(props.get("暴击率") or props.get("cpct"), "%")),
-            ("暴击伤害", _fmt(props.get("暴击伤害") or props.get("cdmg"), "%")),
-            ("伤害加成", _fmt(props.get("元素伤害加成") or props.get("伤害加成") or props.get("dmg"), "%")),
-            ("击破特攻", _fmt(props.get("击破特攻") or props.get("break_effect") or props.get("stance"), "%")),
-            ("效果命中", _fmt(props.get("效果命中") or props.get("effect_hit") or props.get("effPct"), "%")),
-            ("效果抵抗", _fmt(props.get("效果抵抗") or props.get("effect_res") or props.get("effDef"), "%")),
+            ("生命值", _fmt_attr_value("生命值", _first_prop(props, "生命值"))),
+            ("攻击力", _fmt_attr_value("攻击力", _first_prop(props, "攻击力"))),
+            ("防御力", _fmt_attr_value("防御力", _first_prop(props, "防御力"))),
+            ("速度", _fmt_attr_value("速度", _first_prop(props, "速度"))),
+            ("暴击率", _fmt_attr_value("暴击率", _first_prop(props, "暴击率"))),
+            ("暴击伤害", _fmt_attr_value("暴击伤害", _first_prop(props, "暴击伤害"))),
+            ("伤害加成", _fmt_attr_value("伤害加成", _first_prop(props, "伤害加成"))),
+            ("击破特攻", _fmt_attr_value("击破特攻", _first_prop(props, "击破特攻"))),
+            ("效果命中", _fmt_attr_value("效果命中", _first_prop(props, "效果命中"))),
+            ("效果抵抗", _fmt_attr_value("效果抵抗", _first_prop(props, "效果抵抗"))),
         ]
     else:
         attrs = [
@@ -1370,7 +1466,7 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
         score_text = f"{score:.1f} {artifact_rank(score)}" if rel else "-"
         _text(draw, (x + 14, yy + 88), f"+{level}  {score_text}", (255, 232, 170), FONT_TINY)
         if rel:
-            sub_lines = [_artifact_prop_line(prop) for prop in (rel.get("sub_props") or [])[:4]]
+            sub_lines = [_artifact_prop_line(prop, weight, "sr" if is_sr else "gs") for prop in (rel.get("sub_props") or [])[:4]]
             for s_idx, line in enumerate(sub_lines):
                 _text(draw, (x + 14, yy + 112 + s_idx * 20), _fit_text(line, 15), (188, 196, 210), FONT_TINY)
     return y + 444
@@ -1404,18 +1500,16 @@ def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, c
         else:
             _text(draw, (x + 35, y + 39), (SR_RELIC_SLOT_ICONS if is_sr else ARTIFACT_SLOT_ICONS)[idx], (255, 247, 230), FONT_TEXT)
         name = _artifact_name(rel, _reliq_label(idx, is_sr))
-        main = _prop_name(rel.get("main_prop") or rel.get("main"))
+        main_prop = rel.get("main_prop") or rel.get("main")
+        main = _prop_name(main_prop)
+        main_value = _prop_value(main_prop)
         level = _artifact_level(rel.get("level"))
         _text(draw, (x + 96, y + 16), _fit_text(name, 15), (245, 228, 183), FONT_SMALL)
-        _text(draw, (x + 96, y + 44), f"{_reliq_label(idx, is_sr)}  +{level}  主词条：{main}", (218, 218, 218), FONT_TINY)
+        main_line = f"{_reliq_label(idx, is_sr)}  +{level}  主词条：{main}+{main_value}" if main_value else f"{_reliq_label(idx, is_sr)}  +{level}  主词条：{main}"
+        _text(draw, (x + 96, y + 44), main_line, (218, 218, 218), FONT_TINY)
         subs = []
         for prop in rel.get("sub_props") or []:
-            if isinstance(prop, dict):
-                prop_name = _prop_name(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key"))
-                prop_value = _prop_value(prop)
-                subs.append(f"{prop_name}+{prop_value}" if prop_value else prop_name)
-            else:
-                subs.append(_prop_name(prop))
+            subs.append(_artifact_prop_line(prop, weight, "sr" if is_sr else "gs"))
         _text(draw, (x + 96, y + 72), _fit_text(" / ".join(subs) or "无副词条", 34), (188, 196, 210), FONT_TINY)
         _rounded_r(draw, (x + 462, y + 22, x + 532, y + 62), 10, (80, 62, 36), (221, 191, 135), 1)
         _text(draw, (x + 472, y + 30), f"{score:.1f}", (255, 232, 170), FONT_TEXT)

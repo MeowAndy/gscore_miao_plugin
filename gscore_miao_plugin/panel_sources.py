@@ -132,30 +132,51 @@ def _normalize_prop_name(name: Any) -> str:
         "mastery": "元素精通",
         "crit_rate": "暴击率",
         "critRate": "暴击率",
+        "crit": "暴击率",
+        "cpct": "暴击率",
         "crit_dmg": "暴击伤害",
         "critDamage": "暴击伤害",
+        "crit_damage": "暴击伤害",
+        "cdmg": "暴击伤害",
         "energy_recharge": "充能效率",
         "recharge": "充能效率",
         "speed": "速度",
         "spd": "速度",
         "break_effect": "击破特攻",
         "breakEffect": "击破特攻",
+        "break_dmg": "击破特攻",
+        "breakDamage": "击破特攻",
+        "stance": "击破特攻",
         "effect_hit": "效果命中",
         "effectHitRate": "效果命中",
+        "effect_hit_rate": "效果命中",
+        "effPct": "效果命中",
         "effect_res": "效果抵抗",
         "effectRes": "效果抵抗",
+        "effect_resistance": "效果抵抗",
+        "effDef": "效果抵抗",
+        "dmg": "伤害加成",
+        "damage": "伤害加成",
     }
     return mapping.get(text, text)
 
 
 def _props_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
     props: Dict[str, Any] = {}
-    source = avatar.get("fight_props") or avatar.get("fightProps") or avatar.get("attr") or avatar.get("attrs") or {}
+    source = avatar.get("fight_props") or avatar.get("fightProps") or avatar.get("properties") or avatar.get("attribute") or avatar.get("attributes") or avatar.get("attr") or avatar.get("attrs") or {}
     if isinstance(source, dict):
         for key, value in source.items():
             if isinstance(value, dict):
-                value = value.get("value") or value.get("val") or value.get("total")
+                value = value.get("display") or value.get("value_str") or value.get("valueStr") or value.get("value") or value.get("val") or value.get("total")
             props[_normalize_prop_name(key)] = value
+    elif isinstance(source, list):
+        for item in source:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("field") or item.get("key") or item.get("type") or item.get("name")
+            value = item.get("display") or item.get("value_str") or item.get("valueStr") or item.get("value") or item.get("val") or item.get("total")
+            if key and value not in (None, ""):
+                props[_normalize_prop_name(key)] = value
     for src_key, dst_key in {
         "max_hp": "生命值",
         "hp": "生命值",
@@ -167,18 +188,31 @@ def _props_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
         "mastery": "元素精通",
         "crit_rate": "暴击率",
         "critRate": "暴击率",
+        "crit": "暴击率",
+        "cpct": "暴击率",
         "crit_dmg": "暴击伤害",
         "critDamage": "暴击伤害",
+        "crit_damage": "暴击伤害",
+        "cdmg": "暴击伤害",
         "energy_recharge": "充能效率",
         "recharge": "充能效率",
         "speed": "速度",
         "spd": "速度",
         "break_effect": "击破特攻",
         "breakEffect": "击破特攻",
+        "break_dmg": "击破特攻",
+        "breakDamage": "击破特攻",
+        "stance": "击破特攻",
         "effect_hit": "效果命中",
         "effectHitRate": "效果命中",
+        "effect_hit_rate": "效果命中",
+        "effPct": "效果命中",
         "effect_res": "效果抵抗",
         "effectRes": "效果抵抗",
+        "effect_resistance": "效果抵抗",
+        "effDef": "效果抵抗",
+        "dmg": "伤害加成",
+        "damage": "伤害加成",
     }.items():
         if src_key in avatar and dst_key not in props:
             props[dst_key] = avatar[src_key]
@@ -196,6 +230,21 @@ def _weapon_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
         "promote_level": weapon.get("promote") or weapon.get("promote_level"),
         "refine": weapon.get("affix") or weapon.get("refine") or weapon.get("rank") or weapon.get("affix_level"),
         "rarity": weapon.get("star") or weapon.get("rarity") or weapon.get("rankLevel"),
+        "attrs": weapon.get("attrs") or weapon.get("attributes") or weapon.get("properties") or weapon.get("stats") or weapon.get("main"),
+    }
+
+
+def _norm_relic_prop(prop: Any) -> Any:
+    if not isinstance(prop, dict):
+        return prop
+    return {
+        "key": prop.get("key") or prop.get("field") or prop.get("type") or prop.get("appendPropId") or prop.get("mainPropId") or prop.get("name"),
+        "appendPropId": prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or prop.get("field") or prop.get("type"),
+        "name": prop.get("name") or prop.get("title"),
+        "value": prop.get("value") if prop.get("value") not in (None, "") else prop.get("val") or prop.get("statValue") or prop.get("display") or prop.get("value_str") or prop.get("valueStr") or prop.get("base"),
+        "display": prop.get("display") or prop.get("value_str") or prop.get("valueStr") or prop.get("formatted"),
+        "cnt": prop.get("cnt") or prop.get("count") or prop.get("rolls") or prop.get("step"),
+        "score": prop.get("score") or prop.get("mark"),
     }
 
 
@@ -219,8 +268,8 @@ def _reliquaries_from_avatar(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "pos": item.get("pos") or item.get("idx") or item.get("equipType"),
                 "level": item.get("level") or item.get("lv"),
                 "rarity": item.get("star") or item.get("rarity"),
-                "main_prop": item.get("main_prop") or item.get("mainId") or item.get("main") or item.get("mainPropId") or item.get("mainAffixId"),
-                "sub_props": item.get("sub_props") or item.get("attrs") or item.get("attrIds") or item.get("appendPropIdList") or item.get("subAffixList") or [],
+                "main_prop": _norm_relic_prop(item.get("main_prop") or item.get("mainProp") or item.get("mainstat") or item.get("mainStat") or item.get("main")) if isinstance(item.get("main_prop") or item.get("mainProp") or item.get("mainstat") or item.get("mainStat") or item.get("main"), dict) else (item.get("main_prop") or item.get("mainId") or item.get("main") or item.get("mainPropId") or item.get("mainAffixId")),
+                "sub_props": [_norm_relic_prop(x) for x in (item.get("sub_props") or item.get("substats") or item.get("subStats") or item.get("attrs") or item.get("attrIds") or item.get("appendPropIdList") or item.get("subAffixList") or [])],
             }
         )
     return reliqs

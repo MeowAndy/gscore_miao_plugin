@@ -112,12 +112,34 @@ PROP_KEY_MAP = {
     "energy_recharge": "recharge",
     "speed": "speed",
     "spd": "speed",
+    "hp": "hp",
+    "atk": "atk",
+    "def": "def",
+    "cpct": "cpct",
+    "cdmg": "cdmg",
+    "heal": "heal",
+    "stance": "stance",
+    "effPct": "effPct",
+    "effDef": "effDef",
+    "recharge": "recharge",
+    "crit": "cpct",
+    "crit_rate": "cpct",
+    "critRate": "cpct",
+    "crit_damage": "cdmg",
+    "crit_dmg": "cdmg",
+    "critDamage": "cdmg",
     "break_effect": "stance",
     "breakEffect": "stance",
+    "break_dmg": "stance",
+    "breakDamage": "stance",
     "effect_hit": "effPct",
     "effectHitRate": "effPct",
+    "effect_hit_rate": "effPct",
     "effect_res": "effDef",
     "effectRes": "effDef",
+    "effect_resistance": "effDef",
+    "dmg": "dmg",
+    "damage": "dmg",
 }
 
 MAX_SUB_VALUE = {
@@ -224,6 +246,9 @@ def _prop_key(prop: Any) -> str:
         return PROP_KEY_MAP[text]
     if text in {"atkPlus", "defPlus", "hpPlus"}:
         return text
+    lower = text.lower()
+    if lower in PROP_KEY_MAP:
+        return PROP_KEY_MAP[lower]
     upper = text.upper()
     if upper in PROP_KEY_MAP:
         return PROP_KEY_MAP[upper]
@@ -257,10 +282,10 @@ def _prop_key(prop: Any) -> str:
 def _sub_value(prop: Any, max_values: Dict[str, float] | None = None) -> float:
     max_values = max_values or MAX_SUB_VALUE
     if isinstance(prop, dict):
-        raw_prop_id = prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or prop.get("mainPropId") or prop.get("name") or prop.get("type") or ""
+        raw_prop_id = prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or prop.get("field") or prop.get("mainPropId") or prop.get("name") or prop.get("type") or ""
         prop_id = str(raw_prop_id).upper()
         prop_key = _prop_key(prop_id)
-        for key in ("value", "val", "count", "cnt"):
+        for key in ("value", "val", "statValue", "base", "display", "value_str", "valueStr", "count", "cnt"):
             if key in prop:
                 value = _as_float(prop.get(key), 0)
                 if prop_id in FLAT_PROP_MAX:
@@ -312,7 +337,7 @@ def _weight_for_char(char: Dict[str, Any]) -> Tuple[str, Dict[str, float]]:
 
 
 def _prop_score(prop: Any, weight: Dict[str, float], main: bool = False, max_values: Dict[str, float] | None = None) -> float:
-    key = _prop_key(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or prop.get("mainPropId") or prop.get("name") or prop.get("type") if isinstance(prop, dict) else prop)
+    key = _prop_key(prop.get("appendPropId") or prop.get("prop_id") or prop.get("key") or prop.get("field") or prop.get("mainPropId") or prop.get("name") or prop.get("type") if isinstance(prop, dict) else prop)
     if not key:
         return 0.0
     max_values = max_values or MAX_SUB_VALUE
