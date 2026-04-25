@@ -36,6 +36,18 @@ def _pick_role_uid(roles: list[dict], uid: str = "") -> str:
     return _role_uid(roles[0]) if roles else ""
 
 
+def _role_uids(roles: list[dict], uid: str = "") -> list[str]:
+    uids: list[str] = []
+    for role in roles:
+        role_uid = _role_uid(role)
+        if not role_uid or role_uid in uids:
+            continue
+        if uid and role_uid != uid:
+            continue
+        uids.append(role_uid)
+    return uids
+
+
 def _mask_cookie(cookie: str) -> str:
     if len(cookie) <= 16:
         return "已保存"
@@ -134,12 +146,16 @@ async def send_daily_sign(bot: Bot, ev: Event):
         except Exception:
             sr_roles = []
 
-    gs_uid = _pick_role_uid(gs_roles, specified_uid) if specified_uid else (_pick_role_uid(gs_roles, default_uid) or _pick_role_uid(gs_roles))
-    sr_uid = _pick_role_uid(sr_roles, specified_uid)
+    gs_uids = _role_uids(gs_roles, specified_uid)
+    if not specified_uid and not gs_uids and default_uid:
+        picked_uid = _pick_role_uid(gs_roles, default_uid)
+        if picked_uid:
+            gs_uids = [picked_uid]
+    sr_uids = _role_uids(sr_roles, specified_uid)
     sections: list[str] = []
     errors: list[str] = []
 
-    if gs_uid:
+    for gs_uid in gs_uids:
         try:
             before = await fetch_sign_info(cookie, gs_uid)
             signed = bool(before.get("is_sign"))
@@ -156,9 +172,9 @@ async def send_daily_sign(bot: Bot, ev: Event):
                 f"🕒 日期：{today}"
             )
         except Exception as e:
-            errors.append(f"原神：{e}")
+            errors.append(f"原神 {gs_uid}：{e}")
 
-    if sr_uid:
+    for sr_uid in sr_uids:
         try:
             before = await fetch_starrail_sign_info(cookie, sr_uid)
             signed = bool(before.get("is_sign"))
@@ -175,7 +191,7 @@ async def send_daily_sign(bot: Bot, ev: Event):
                 f"🕒 日期：{today}"
             )
         except Exception as e:
-            errors.append(f"崩铁：{e}")
+            errors.append(f"崩铁 {sr_uid}：{e}")
 
     if sections:
         return await bot.send("\n\n".join(sections))
