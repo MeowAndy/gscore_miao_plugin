@@ -2,6 +2,12 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.15.3] - 2026-04-26
+
+### Fixed
+- 修复星铁遗器固定值词条 `hpPlus` / `atkPlus` / `defPlus` 在面板图中未转中文的问题。
+- 修正固定生命、攻击、防御词条误带百分号的显示格式。
+
 ## [0.15.2] - 2026-04-25
 
 ### Fixed

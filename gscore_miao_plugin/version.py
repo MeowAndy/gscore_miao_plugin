@@ -1,6 +1,14 @@
-PLUGIN_VERSION = "0.15.2"
+PLUGIN_VERSION = "0.15.3"
 
 CHANGELOGS = [
+    {
+        "version": "0.15.3",
+        "date": "2026-04-26",
+        "items": [
+            "修复星铁遗器固定值词条 hpPlus/atkPlus/defPlus 在面板图中未转中文的问题",
+            "修正固定生命/攻击/防御词条误带百分号的显示格式，遗器词条展示更接近 miao-plugin",
+        ],
+    },
     {
         "version": "0.15.2",
         "date": "2026-04-25",

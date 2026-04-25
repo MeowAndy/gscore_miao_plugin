@@ -181,6 +181,12 @@ PROP_NAME_MAP: Dict[str, str] = {
     "hp": "生命值",
     "atk": "攻击力",
     "def": "防御力",
+    "hpPlus": "生命值",
+    "atkPlus": "攻击力",
+    "defPlus": "防御力",
+    "hpplus": "生命值",
+    "atkplus": "攻击力",
+    "defplus": "防御力",
 }
 
 WEAPON_PROP_NAME_MAP: Dict[str, str] = {
@@ -1178,7 +1184,7 @@ def _prop_value(value: Any) -> str:
     except (TypeError, ValueError):
         return str(raw)
     key = str(value.get("appendPropId") or value.get("prop_id") or value.get("key") or value.get("field") or value.get("mainPropId") or value.get("type") or value.get("name") or "").upper()
-    suffix = "%" if any(x in key for x in ["PERCENT", "CRITICAL", "CRIT", "HURT", "CHARGE", "ADD", "HEAL", "CPCT", "CDMG", "RECHARGE", "DMG", "DAMAGE", "EFFECT", "EFF", "BREAK", "STANCE"]) or any(x in key for x in ["暴击", "伤害", "击破", "效果", "充能", "治疗"]) else ""
+    suffix = "%" if any(x in key for x in ["PERCENT", "CRITICAL", "CRIT", "HURT", "CHARGE", "HEAL", "CPCT", "CDMG", "RECHARGE", "DMG", "DAMAGE", "EFFECT", "EFF", "BREAK", "STANCE"]) or any(x in key for x in ["暴击", "伤害", "击破", "效果", "充能", "治疗"]) else ""
     if suffix and 0 < abs(num) < 1:
         num *= 100
     if abs(num - round(num)) < 0.01:
