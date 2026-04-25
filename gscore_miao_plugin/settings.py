@@ -13,6 +13,7 @@ def build_default_user_cfg() -> Dict[str, object]:
         "team_calc": False,
         "show_star": False,
         "comma_group": 3,
+        "auto_daily_sign": False,
     }
 
 

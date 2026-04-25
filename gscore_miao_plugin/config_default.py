@@ -101,6 +101,16 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "允许已登录用户执行原神每日签到",
         True,
     ),
+    "EnableAutoDailySign": GsBoolConfig(
+        "开启自动签到",
+        "允许用户开启每日自动签到；关闭后定时任务不会执行",
+        True,
+    ),
+    "AutoDailySignTime": GsListStrConfig(
+        "每日自动签到时间",
+        "每日自动执行米游社签到的时间，格式为 [小时, 分钟]，例如 [8, 0]",
+        ["8", "0"],
+    ),
     "LoginHelpUrl": GsStrConfig(
         "登录教程链接",
         "喵喵登录 未携带 Cookie 时展示的教程链接，可填自建登录页或说明文档",
