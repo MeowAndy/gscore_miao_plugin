@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -700,6 +701,41 @@ def _char_match_text(char: Dict[str, Any]) -> str:
     return " ".join(x for x in parts if x).lower()
 
 
+def _similar_char_names(query: str, characters: Iterable[Dict[str, Any]], limit: int = 3) -> List[str]:
+    q = (query or "").strip().lower()
+    if not q:
+        return []
+    scored: List[Tuple[float, str]] = []
+    seen: set[str] = set()
+    for char in characters:
+        name = _char_name(char)
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        lower = name.lower()
+        score = SequenceMatcher(None, q, lower).ratio()
+        if q[:1] and lower[:1] == q[:1]:
+            score += 0.12
+        if q[-1:] and lower[-1:] == q[-1:]:
+            score += 0.08
+        if q in lower or lower in q:
+            score += 0.2
+        scored.append((score, name))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [name for score, name in scored[:limit] if score >= 0.35]
+
+
+def _raise_unknown_character(result: PanelResult, character_query: str, characters: List[Dict[str, Any]]) -> None:
+    available = "、".join(_char_name(c) for c in characters[:8]) or "无角色"
+    suggestions = _similar_char_names(character_query, characters)
+    suggestion_text = f"\n是不是想查：{'、'.join(suggestions)}？" if suggestions else ""
+    raise ValueError(
+        f"角色名称好像打错啦：{character_query}。{suggestion_text}\n"
+        f"请检查角色名或别名后重试，例如：喵喵原神基尼奇面板。\n"
+        f"当前 UID {result.uid} 可见角色：{available}"
+    )
+
+
 def _char_meta(name: str) -> Dict[str, Any]:
     return _load_json(_resource_path("meta-gs", "character", name, "data.json"))
 
@@ -1314,8 +1350,7 @@ async def render_single_panel_image(result: PanelResult, character_query: str = 
             if q in _char_match_text(c) or resolved in _char_match_text(c)
         ]
         if not filtered:
-            available = "、".join(_char_name(c) for c in characters[:8]) or "无角色"
-            raise ValueError(f"未在 UID {result.uid} 的公开面板中找到角色：{character_query}。当前可见角色：{available}")
+            _raise_unknown_character(result, character_query, characters)
         if filtered:
             characters = filtered
     if characters:
@@ -1344,8 +1379,7 @@ async def render_artifact_image(result: PanelResult, character_query: str = "") 
             resolved = q
         characters = [c for c in characters if q in _char_match_text(c) or resolved in _char_match_text(c)]
         if not characters:
-            available = "、".join(_char_name(c) for c in list(_iter_cards(result.characters or []))[:8]) or "无角色"
-            raise ValueError(f"未在 UID {result.uid} 的公开面板中找到角色：{character_query}。当前可见角色：{available}")
+            _raise_unknown_character(result, character_query, list(_iter_cards(result.characters or [])))
     if not characters:
         raise ValueError("当前数据源没有返回可渲染的角色详情")
     char = characters[0]

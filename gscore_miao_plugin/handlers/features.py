@@ -21,6 +21,10 @@ from ..store import get_user_cfg
 sv_feature = SV("GsCoreMiao扩展功能")
 
 
+def _is_unknown_character_error(error: Exception) -> bool:
+    return str(error).startswith("角色名称好像打错啦：")
+
+
 async def _query_user_panel(bot: Bot, ev: Event, uid: str, source_override: str = "", allow_fallback: bool | None = None):
     user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
     source = source_override or str(user_cfg.get("panel_server") or "auto")
@@ -124,6 +128,8 @@ async def send_miao_style_profile(bot: Bot, ev: Event):
     try:
         return await bot.send(await render_single_panel_image(result, name))
     except Exception as e:
+        if _is_unknown_character_error(e):
+            return await bot.send(str(e))
         return await bot.send(f"图片面板渲染失败，已回退文本摘要：{e}\n\n{render_panel_text(result)}")
 
 
