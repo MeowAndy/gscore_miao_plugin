@@ -2,7 +2,7 @@
 
 将 Yunzai `miao-plugin` 迁移为可在 GsCore 运行的简化插件。
 
-## 已移植能力（v0.15.8）
+## 已移植能力（v0.15.9）
 
 - 帮助：`喵喵原神帮助` / `喵喵原神菜单` / `喵喵崩铁帮助` / `喵喵崩铁菜单`
 - 版本：`喵喵原神版本`
@@ -101,7 +101,7 @@
 ## 说明
 
 原 `miao-plugin` 为 Yunzai 生态（Node.js）插件，和 GsCore（Python）运行时差异较大。
-当前版本为 **功能语义迁移（v0.15.8）**，重点迁移命令形态、UID 绑定、面板管理入口、配置管理、更新日志、基础权限控制、面板数据源、图片模板、角色别名、圣遗物/遗器评分、登录签到与原神/星铁命令域。
+当前版本为 **功能语义迁移（v0.15.9）**，重点迁移命令形态、UID 绑定、面板管理入口、配置管理、更新日志、基础权限控制、面板数据源、图片模板、角色别名、圣遗物/遗器评分、登录签到与原神/星铁命令域。
 Miao API 已对齐 `profile/data` 参数，米游社源已实现 `index` + `character/list` 与 DS 签名流程，Enka 源已解析角色详情摘要；星铁侧已接入 Mihomo、Avocado、EnkaHSR 数据源；`PanelRenderMode=image` 可输出 miao-plugin 风格角色面板图片。
 插件默认使用内置适配资源集；如需调试或覆盖素材，可在 WebUI 将 `MiaoPluginResourcePath` 指向本地 Yunzai `miao-plugin` 目录，插件会尝试读取 `resources/meta-gs` 与 `resources/meta-sr` 下的角色立绘、武器/光锥图标、圣遗物/遗器图标、命座/星魂与天赋/行迹图标；素材缺失时会自动使用占位/文本回退，避免无响应。
 圣遗物/遗器评分已迁移 miao-plugin 风格的常用角色权重和部分动态规则；星铁面板已按 miao-plugin 的 Mihomo/Avocado/EnkaHSR 适配思路补齐角色详情属性、光锥 hp/atk/def、遗器 mainAffixId/subAffixList 反算主副词条数值与副词条评分。伤害估算仍为首版通用算法，后续会继续逐角色对齐 miao-plugin 计算模板。
@@ -110,6 +110,9 @@ Miao API 已对齐 `profile/data` 参数，米游社源已实现 `index` + `char
 ## 更新日志（内置）
 
 完整变更记录见 `CHANGELOG.md`。
+
+- v0.15.9
+  - 移除单角色面板遗器标题栏右侧数量显示，并将遗器/圣遗物标题居中展示
 
 - v0.15.8
   - 将单角色面板命座/星魂数量徽章居中放到图标组正上方，优化基础信息区布局

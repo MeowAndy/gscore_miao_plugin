@@ -1405,9 +1405,13 @@ def _draw_basic_panel(img: Image.Image, draw: ImageDraw.ImageDraw, result: Panel
     return y + h + 16
 
 
-def _draw_section_title(draw: ImageDraw.ImageDraw, y: int, title: str, right: str = "") -> int:
+def _draw_section_title(draw: ImageDraw.ImageDraw, y: int, title: str, right: str = "", center: bool = False) -> int:
     _rounded_r(draw, (25, y, 575, y + 44), 8, (37, 37, 41), (72, 66, 55), 1)
-    _text(draw, (45, y + 10), title, (211, 188, 142), FONT_TEXT)
+    if center:
+        title_w = _text_width(draw, title, FONT_TEXT)
+        _text(draw, (300 - title_w // 2, y + 10), title, (211, 188, 142), FONT_TEXT)
+    else:
+        _text(draw, (45, y + 10), title, (211, 188, 142), FONT_TEXT)
     if right:
         _text(draw, (385, y + 12), right, (160, 160, 160), FONT_TINY)
     return y + 54
@@ -1502,7 +1506,7 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
     _, weight = _weight_for_char(char)
     total, scores, title = character_artifact_score(char)
     rank_score = total / max_count if is_sr and total > 0 else total
-    y = _draw_section_title(draw, y, "遗器" if is_sr else "圣遗物", f"{len(reliqs)}/{max_count}")
+    y = _draw_section_title(draw, y, "遗器" if is_sr else "圣遗物", center=True)
     _rounded_r(draw, (25, y, 575, y + 96), 12, (42, 39, 42), (92, 81, 62), 1)
     _text(draw, (45, y + 15), "遗器总分" if is_sr else "圣遗物总分", (210, 210, 210), FONT_SMALL)
     _text(draw, (170, y + 9), f"{total}", (255, 232, 170), FONT_CARD_TITLE)

@@ -2,6 +2,11 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.15.9] - 2026-04-26
+
+### Changed
+- 移除单角色面板遗器标题栏右侧数量显示，并将遗器/圣遗物标题居中展示。
+
 ## [0.15.8] - 2026-04-26
 
 ### Changed
