@@ -24,7 +24,7 @@ sv_feature = SV("GsCoreMiao扩展功能")
 async def _query_user_panel(bot: Bot, ev: Event, uid: str):
     user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
     source = str(user_cfg.get("panel_server") or "auto")
-    result, errors = await query_panel(uid, source)
+    result, errors = await query_panel(uid, source, user_cfg)
     if result is None:
         detail = "\n".join(errors[:5]) if errors else "无可用数据源"
         await bot.send(f"面板数据查询失败。\n当前服务：{source}\n失败原因：\n{detail}")
@@ -35,7 +35,18 @@ async def _uid_from_event(ev: Event, uid: str) -> str:
     if uid:
         return uid
     user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
-    return str(user_cfg.get("uid") or "").strip()
+    default_uid = str(user_cfg.get("uid") or "").strip()
+    if default_uid:
+        return default_uid
+    for key in ("mys_roles", "mys_sr_roles"):
+        roles = user_cfg.get(key) or []
+        if isinstance(roles, list):
+            for role in roles:
+                if isinstance(role, dict):
+                    role_uid = str(role.get("game_uid") or role.get("uid") or "").strip()
+                    if role_uid:
+                        return role_uid
+    return ""
 
 
 def _resolve_name(raw_name: str) -> str:

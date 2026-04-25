@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from .config import MiaoConfig
 from .panel_models import PanelResult, PanelSourceError
-from .panel_sources import get_source, get_source_order
+from .panel_sources import get_source_order, get_source_with_context
 
 
 def _avatar_count(result: PanelResult) -> int:
@@ -69,13 +69,14 @@ def render_panel_text(result: PanelResult) -> str:
     return "\n".join(lines)
 
 
-async def query_panel(uid: str, user_source: str) -> Tuple[PanelResult | None, List[str]]:
+async def query_panel(uid: str, user_source: str, user_cfg: Dict[str, Any] | None = None) -> Tuple[PanelResult | None, List[str]]:
     errors: List[str] = []
     fallback = bool(MiaoConfig.get_config("EnablePanelFallback").data)
+    user_cfg = user_cfg or {}
 
     for source_name in get_source_order(user_source):
         try:
-            return await get_source(source_name).fetch(uid), errors
+            return await get_source_with_context(source_name, user_cfg).fetch(uid), errors
         except PanelSourceError as e:
             errors.append(f"{e.source}: {e.message}")
             if not fallback:

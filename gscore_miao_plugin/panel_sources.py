@@ -497,13 +497,16 @@ class MiaoPanelSource(BasePanelSource):
 class MysPanelSource(BasePanelSource):
     source_name = "mys"
 
+    def __init__(self, cookie: str = ""):
+        self.cookie = cookie
+
     async def fetch(self, uid: str) -> PanelResult:
         cached = get_cached_panel(self.source_name, uid)
         if cached:
             return cached
 
         base_url = _strip_url(MiaoConfig.get_config("MysApiBaseUrl").data)
-        cookie = str(MiaoConfig.get_config("MysCookie").data or "").strip()
+        cookie = self.cookie or str(MiaoConfig.get_config("MysCookie").data or "").strip()
         if not base_url:
             raise PanelSourceError(self.source_name, "米游社 API 地址未配置")
         if not cookie:
@@ -606,13 +609,19 @@ class SimpleHttpPanelSource(BasePanelSource):
 
 
 def get_source(name: str) -> BasePanelSource:
+    return get_source_with_context(name)
+
+
+def get_source_with_context(name: str, user_cfg: Optional[Dict[str, Any]] = None) -> BasePanelSource:
+    user_cfg = user_cfg or {}
     source_map = {
         "enka": EnkaPanelSource,
         "miao": MiaoPanelSource,
-        "mys": MysPanelSource,
     }
     if name in source_map:
         return source_map[name]()
+    if name == "mys":
+        return MysPanelSource(str(user_cfg.get("mys_cookie") or "").strip())
     if name == "mgg":
         return SimpleHttpPanelSource("mgg", "MggApiBaseUrl", "api/uid/{uid}")
     if name == "hutao":
