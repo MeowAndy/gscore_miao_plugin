@@ -17,6 +17,7 @@ def _render_characters(result: PanelResult) -> List[str]:
     if not characters:
         return []
 
+    is_sr = result.game == "sr"
     lines = ["", "角色详情："]
     for index, char in enumerate(characters[:8], start=1):
         avatar_id = char.get("avatar_id") or "未知角色"
@@ -38,9 +39,9 @@ def _render_characters(result: PanelResult) -> List[str]:
             summary += f" C{cons}"
         if friendship:
             summary += f" 好感{friendship}"
-        summary += f" | 天赋 {skill_levels}"
-        summary += f" | 武器 {weapon_name} Lv.{weapon_level}"
-        summary += f" | 圣遗物 {reliq_count}/5"
+        summary += f" | {'行迹' if is_sr else '天赋'} {skill_levels}"
+        summary += f" | {'光锥' if is_sr else '武器'} {weapon_name} Lv.{weapon_level}"
+        summary += f" | {'遗器' if is_sr else '圣遗物'} {reliq_count}/{6 if is_sr else 5}"
         if crit is not None and crit_dmg is not None:
             summary += f" | 双暴 {crit}%/{crit_dmg}%"
         if recharge is not None:
@@ -53,8 +54,9 @@ def _render_characters(result: PanelResult) -> List[str]:
 
 
 def render_panel_text(result: PanelResult) -> str:
+    is_sr = result.game == "sr"
     lines = [
-        "【喵喵原神面板】",
+        "【喵喵崩铁面板】" if is_sr else "【喵喵原神面板】",
         f"UID：{result.uid}",
         f"数据源：{result.source}",
     ]
@@ -74,17 +76,19 @@ async def query_panel(
     user_source: str,
     user_cfg: Dict[str, Any] | None = None,
     allow_fallback: bool | None = None,
+    game: str = "gs",
 ) -> Tuple[PanelResult | None, List[str]]:
     errors: List[str] = []
     fallback = bool(MiaoConfig.get_config("EnablePanelFallback").data) if allow_fallback is None else allow_fallback
     user_cfg = user_cfg or {}
-    source_order = get_source_order(user_source)
+    game = "sr" if game in {"sr", "starrail", "hkrpg"} else "gs"
+    source_order = get_source_order(user_source, game)
     if allow_fallback is False and user_source and user_source != "auto":
         source_order = [user_source]
 
     for source_name in source_order:
         try:
-            return await get_source_with_context(source_name, user_cfg).fetch(uid), errors
+            return await get_source_with_context(source_name, user_cfg, game).fetch(uid), errors
         except PanelSourceError as e:
             errors.append(f"{e.source}: {e.message}")
             if not fallback:

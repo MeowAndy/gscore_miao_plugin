@@ -112,6 +112,7 @@ CHARACTER_ID_NAMES: Dict[int, str] = {
 }
 
 ARTIFACT_SLOT_ICONS = ["花", "羽", "沙", "杯", "冠"]
+SR_RELIC_SLOT_ICONS = ["头", "手", "躯", "脚", "球", "绳"]
 
 ARTIFACT_SLOT_INDEX = {
     "EQUIP_BRACER": 1,
@@ -501,10 +502,11 @@ def _draw_character_card(draw: ImageDraw.ImageDraw, char: Dict[str, Any], index:
 
     left = x + 30
     top = y + 112
+    is_sr = char.get("game") == "sr"
     lines = [
-        _stat_line("天赋", skill_levels),
-        _stat_line("武器", f"{weapon_name} Lv.{weapon_level}"),
-        _stat_line("圣遗物", f"{reliq_count}/5"),
+        _stat_line("行迹" if is_sr else "天赋", skill_levels),
+        _stat_line("光锥" if is_sr else "武器", f"{weapon_name} Lv.{weapon_level}"),
+        _stat_line("遗器" if is_sr else "圣遗物", f"{reliq_count}/{6 if is_sr else 5}"),
         _stat_line("双暴", f"{_safe(crit)}% / {_safe(crit_dmg)}%" if crit is not None or crit_dmg is not None else "-"),
         _stat_line("充能", f"{recharge}%" if recharge is not None else "-"),
         _stat_line("攻击/精通", f"{_safe(atk)} / {_safe(mastery)}"),
@@ -569,7 +571,7 @@ def _draw_avatar_orange_base(draw: ImageDraw.ImageDraw, x: int, y: int, size: in
 def _draw_profile_avatar(img: Image.Image, draw: ImageDraw.ImageDraw, char: Dict[str, Any], x: int, y: int, is_new: bool) -> None:
     name = _char_name(char)
     size = 82
-    face = _avatar_circle(_char_face_path(name), size)
+    face = _avatar_circle(_char_face_path(name, char.get("game", "gs")), size)
     rank_size = 94
     rank_x = x - 6
     rank_y = y - 6
@@ -610,6 +612,7 @@ def _draw_profile_avatar(img: Image.Image, draw: ImageDraw.ImageDraw, char: Dict
 
 
 def _draw_profile_list_image(result: PanelResult, characters: List[Dict[str, Any]], updated: bool) -> Image.Image:
+    is_sr = result.game == "sr"
     scale = 1.6
     width = 1040
     cols = 8
@@ -626,18 +629,19 @@ def _draw_profile_list_image(result: PanelResult, characters: List[Dict[str, Any
     img.alpha_composite(Image.new("RGBA", (width, height), (4, 13, 30, 54)))
     draw = ImageDraw.Draw(img)
 
-    _shadow_text(draw, (48, 32), "#面板列表", (255, 255, 255), FONT_PROFILE_TITLE)
+    _shadow_text(draw, (48, 32), "#星铁面板列表" if is_sr else "#面板列表", (255, 255, 255), FONT_PROFILE_TITLE)
     _shadow_text(draw, (332, 70), f"UID:{result.uid}", (255, 255, 255), FONT_PROFILE_UID)
     msg = "获取角色面板数据成功" if updated else "当前已缓存角色面板数据"
     _shadow_text(draw, (49, 105), msg, (255, 255, 255), FONT_PROFILE_LABEL)
     demo = _char_name(characters[0]) if characters else "角色"
     hint_y = 132
     _shadow_text(draw, (49, hint_y), "你可以使用", (255, 255, 255), FONT_PROFILE_LABEL)
-    _shadow_text(draw, (161, hint_y), f"#{demo}面板", (246, 199, 74), FONT_PROFILE_LABEL)
+    prefix = "#星铁" if is_sr else "#"
+    _shadow_text(draw, (161, hint_y), f"{prefix}{demo}面板", (246, 199, 74), FONT_PROFILE_LABEL)
     _shadow_text(draw, (293, hint_y), "、", (255, 255, 255), FONT_PROFILE_LABEL)
-    _shadow_text(draw, (318, hint_y), f"#{demo}伤害", (246, 199, 74), FONT_PROFILE_LABEL)
+    _shadow_text(draw, (318, hint_y), f"{prefix}{demo}伤害", (246, 199, 74), FONT_PROFILE_LABEL)
     _shadow_text(draw, (450, hint_y), "、", (255, 255, 255), FONT_PROFILE_LABEL)
-    _shadow_text(draw, (475, hint_y), f"#{demo}圣遗物", (246, 199, 74), FONT_PROFILE_LABEL)
+    _shadow_text(draw, (475, hint_y), f"{prefix}{demo}{'遗器' if is_sr else '圣遗物'}", (246, 199, 74), FONT_PROFILE_LABEL)
     _shadow_text(draw, (628, hint_y), "命令来查看面板信息了", (255, 255, 255), FONT_PROFILE_LABEL)
 
     y = header_h
@@ -650,7 +654,7 @@ def _draw_profile_list_image(result: PanelResult, characters: List[Dict[str, Any
         draw.ellipse((42, y + 19, 63, y + 40), fill=(244, 68, 58))
         draw.ellipse((196, y + 19, 217, y + 40), fill=(247, 185, 53))
     _text(draw, (71, y + 17), "综合练度排名", (255, 255, 255), FONT_PROFILE_LABEL)
-    _text(draw, (225, y + 17), "圣遗物评分排名", (255, 255, 255), FONT_PROFILE_LABEL)
+    _text(draw, (225, y + 17), "遗器评分排名" if is_sr else "圣遗物评分排名", (255, 255, 255), FONT_PROFILE_LABEL)
     time_text = datetime.now().strftime("%m-%d %H:%M")
     _text(draw, (388, y + 21), f"排名：本群内 {time_text} 后，通过 #面板 命令查看过的角色数据", (170, 178, 193), FONT_PROFILE_SMALL)
 
@@ -677,6 +681,10 @@ def _draw_profile_list_image(result: PanelResult, characters: List[Dict[str, Any
 
 
 def _char_name(char: Dict[str, Any]) -> str:
+    if char.get("game") == "sr":
+        name = char.get("name") or char.get("avatar_name")
+        if name and not str(name).isdigit():
+            return str(name)
     avatar_id = char.get("avatar_id") or char.get("avatarId")
     try:
         mapped = CHARACTER_ID_NAMES.get(int(avatar_id))
@@ -687,7 +695,8 @@ def _char_name(char: Dict[str, Any]) -> str:
     name = char.get("name") or char.get("avatar_name")
     if name and not str(name).isdigit():
         return str(name)
-    folder, data = _find_meta_by_id("meta-gs/character", str(avatar_id or ""))
+    base = "meta-sr/character" if char.get("game") == "sr" else "meta-gs/character"
+    folder, data = _find_meta_by_id(base, str(avatar_id or ""))
     return str(data.get("name") or folder or "未知角色")
 
 
@@ -729,28 +738,31 @@ def _raise_unknown_character(result: PanelResult, character_query: str, characte
     available = "、".join(_char_name(c) for c in characters[:8]) or "无角色"
     suggestions = _similar_char_names(character_query, characters)
     suggestion_text = f"\n是不是想查：{'、'.join(suggestions)}？" if suggestions else ""
+    example = "喵喵崩铁黄泉面板" if result.game == "sr" else "喵喵原神基尼奇面板"
     raise ValueError(
         f"角色名称好像打错啦：{character_query}。{suggestion_text}\n"
-        f"请检查角色名或别名后重试，例如：喵喵原神基尼奇面板。\n"
+        f"请检查角色名或别名后重试，例如：{example}。\n"
         f"当前 UID {result.uid} 可见角色：{available}"
     )
 
 
-def _char_meta(name: str) -> Dict[str, Any]:
-    return _load_json(_resource_path("meta-gs", "character", name, "data.json"))
+def _char_meta(name: str, game: str = "gs") -> Dict[str, Any]:
+    return _load_json(_resource_path("meta-sr" if game == "sr" else "meta-gs", "character", name, "data.json"))
 
 
-def _character_weapon_type(name: str) -> str:
-    meta = _char_meta(name)
+def _character_weapon_type(name: str, game: str = "gs") -> str:
+    meta = _char_meta(name, game)
     weapon = str(meta.get("weapon") or "sword").strip().lower()
     return weapon if weapon in {"sword", "claymore", "polearm", "bow", "catalyst"} else "sword"
 
 
-def _talent_icon_path(name: str, key: str) -> Path | None:
+def _talent_icon_path(name: str, key: str, game: str = "gs") -> Path | None:
     if key == "a":
-        return _resource_path("common", "item", f"atk-{_character_weapon_type(name)}.webp")
+        fallback = _resource_path("common", "item", f"atk-{_character_weapon_type(name, game)}.webp")
+        if fallback:
+            return fallback
 
-    meta = _char_meta(name)
+    meta = _char_meta(name, game)
     talent_cons = meta.get("talentCons") or {}
     cons_idx = 0
     if isinstance(talent_cons, dict):
@@ -759,23 +771,23 @@ def _talent_icon_path(name: str, key: str) -> Path | None:
         except (TypeError, ValueError):
             cons_idx = 0
     if cons_idx > 0:
-        cons_path = _resource_path("meta-gs", "character", name, "icons", f"cons-{cons_idx}.webp")
+        cons_path = _resource_path("meta-sr" if game == "sr" else "meta-gs", "character", name, "icons", f"cons-{cons_idx}.webp")
         if cons_path:
             return cons_path
-    return _resource_path("meta-gs", "character", name, "icons", f"talent-{key}.webp")
+    return _resource_path("meta-sr" if game == "sr" else "meta-gs", "character", name, "imgs" if game == "sr" else "icons", f"talent-{key}.webp")
 
 
-def _char_image(name: str, kind: str = "splash") -> Path | None:
+def _char_image(name: str, kind: str = "splash", game: str = "gs") -> Path | None:
     for file in (f"{kind}.webp", f"{kind}0.webp", f"{kind}.png"):
-        path = _resource_path("meta-gs", "character", name, "imgs", file)
+        path = _resource_path("meta-sr" if game == "sr" else "meta-gs", "character", name, "imgs", file)
         if path:
             return path
     return None
 
 
-def _char_face_path(name: str) -> Path | None:
+def _char_face_path(name: str, game: str = "gs") -> Path | None:
     for file in ("face-q.webp", "face.webp", "card.webp", "side.webp"):
-        path = _resource_path("meta-gs", "character", name, "imgs", file)
+        path = _resource_path("meta-sr" if game == "sr" else "meta-gs", "character", name, "imgs", file)
         if path:
             return path
     return None
@@ -789,7 +801,7 @@ def _char_star(char: Dict[str, Any]) -> int:
                 return value
         except (TypeError, ValueError):
             pass
-    data = _char_meta(_char_name(char))
+    data = _char_meta(_char_name(char), char.get("game", "gs"))
     try:
         return int(data.get("star") or data.get("rarity") or 5)
     except (TypeError, ValueError):
@@ -1073,7 +1085,7 @@ def _draw_miao_header(img: Image.Image, draw: ImageDraw.ImageDraw, result: Panel
     img.alpha_composite(overlay)
     draw.polygon([(0, 500), (width, 410), (width, 560), (0, 560)], fill=(22, 23, 27))
 
-    splash = _open_image(_char_image(name, "splash"), (760, 520), contain=True)
+    splash = _open_image(_char_image(name, "splash", result.game), (760, 520), contain=True)
     if splash:
         _paste(img, splash, (-80, 8))
         shade = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -1094,27 +1106,28 @@ def _draw_miao_header(img: Image.Image, draw: ImageDraw.ImageDraw, result: Panel
 
 
 def _draw_basic_panel(img: Image.Image, draw: ImageDraw.ImageDraw, result: PanelResult, char: Dict[str, Any]) -> int:
+    is_sr = result.game == "sr"
     x, y, w, h = 25, 392, 550, 196
     _rounded_r(draw, (x, y, x + w, y + h), 14, (31, 30, 34), (221, 191, 135), 2)
     name = _char_name(char)
-    meta = _char_meta(name)
+    meta = _char_meta(name, result.game)
     cons = char.get("constellation")
     level = _safe(char.get("level"), "?")
     _text(draw, (x + 20, y + 16), name, (245, 228, 183), FONT_TITLE)
     _text(draw, (x + 22, y + 68), f"UID {result.uid} - Lv.{level}", (232, 232, 232), FONT_TEXT)
     if cons is not None:
         _rounded_r(draw, (x + 300, y + 68, x + 360, y + 96), 8, (150, 48, 42))
-        _text(draw, (x + 315, y + 72), f"{cons}命", (255, 245, 225), FONT_SMALL)
+        _text(draw, (x + 315, y + 72), f"{cons}{'魂' if is_sr else '命'}", (255, 245, 225), FONT_SMALL)
 
     skills = list(char.get("skill_levels") or [])[:3]
-    labels = ["普攻", "战技", "爆发"]
+    labels = ["普攻", "战技", "终结"] if is_sr else ["普攻", "战技", "爆发"]
     for idx, label in enumerate(labels):
         lv = skills[idx] if idx < len(skills) else "-"
         cx = x + 28 + idx * 82
         cy = y + 112
         draw.ellipse((cx, cy, cx + 52, cy + 52), fill=(42, 43, 48), outline=(214, 183, 112), width=2)
         icon_key = ["a", "e", "q"][idx]
-        icon_path = _talent_icon_path(name, icon_key)
+        icon_path = _talent_icon_path(name, icon_key, result.game)
         icon = _open_image(icon_path, (34, 34), contain=True)
         if icon:
             _paste(img, icon, (cx + 9, cy + 8))
@@ -1129,7 +1142,7 @@ def _draw_basic_panel(img: Image.Image, draw: ImageDraw.ImageDraw, result: Panel
     for idx in range(6):
         cx = x + 326 + idx * 33
         cy = y + 122
-        icon_path = _resource_path("meta-gs", "character", name, "icons", f"cons-{idx + 1}.webp")
+        icon_path = _resource_path("meta-sr" if is_sr else "meta-gs", "character", name, "icons", f"cons-{idx + 1}.webp")
         icon = _open_image(icon_path, (26, 26), contain=True)
         active = cons is not None and idx < int(cons)
         draw.ellipse((cx, cy, cx + 26, cy + 26), fill=(42, 43, 48), outline=(245, 230, 190), width=1)
@@ -1178,11 +1191,12 @@ def _draw_attrs(draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
 
 
 def _draw_weapon(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
+    is_sr = char.get("game") == "sr"
     weapon = char.get("weapon") or {}
     if not isinstance(weapon, dict):
         weapon = {}
     rarity = int(weapon.get("rarity") or 5)
-    y = _draw_section_title(draw, y, "武器")
+    y = _draw_section_title(draw, y, "光锥" if is_sr else "武器")
     _rounded_r(draw, (25, y, 575, y + 144), 12, (38, 37, 42), (92, 81, 62), 1)
     name = _weapon_name(weapon)
     draw.rounded_rectangle((42, y + 18, 118, y + 94), radius=12, fill=_star_color(rarity))
@@ -1190,7 +1204,7 @@ def _draw_weapon(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict
     if icon:
         _paste(img, icon, (44, y + 20))
     else:
-        _text(draw, (66, y + 40), "武", (255, 247, 230), FONT_CARD_TITLE)
+        _text(draw, (66, y + 40), "锥" if is_sr else "武", (255, 247, 230), FONT_CARD_TITLE)
     refine = weapon.get("refine") or 1
     _text(draw, (134, y + 18), _fit_text(name, 13), (245, 228, 183), FONT_CARD_TITLE)
     _text(draw, (136, y + 58), f"精{_safe(refine, '1')}  Lv.{_safe(weapon.get('level'), '?')}  {'★' * min(rarity, 5)}", (226, 226, 226), FONT_SMALL)
@@ -1204,7 +1218,10 @@ def _draw_weapon(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict
     return y + 160
 
 
-def _reliq_label(index: int) -> str:
+def _reliq_label(index: int, is_sr: bool = False) -> str:
+    if is_sr:
+        labels = ["头部", "手部", "躯干", "脚部", "位面球", "连结绳"]
+        return labels[index] if index < len(labels) else "遗器"
     return ["生之花", "死之羽", "时之沙", "空之杯", "理之冠"][index] if index < 5 else "圣遗物"
 
 
@@ -1212,19 +1229,21 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
     from .artifact_service import (_weight_for_char, artifact_rank,
                                    character_artifact_score, score_reliquary)
 
-    reliqs = [r for r in (char.get("reliquaries") or []) if isinstance(r, dict)][:5]
+    is_sr = char.get("game") == "sr"
+    max_count = 6 if is_sr else 5
+    reliqs = [r for r in (char.get("reliquaries") or []) if isinstance(r, dict)][:max_count]
     _, weight = _weight_for_char(char)
     total, scores, title = character_artifact_score(char)
-    y = _draw_section_title(draw, y, "圣遗物", f"{len(reliqs)}/5")
+    y = _draw_section_title(draw, y, "遗器" if is_sr else "圣遗物", f"{len(reliqs)}/{max_count}")
     _rounded_r(draw, (25, y, 575, y + 74), 12, (42, 39, 42), (92, 81, 62), 1)
-    _text(draw, (45, y + 15), "圣遗物总分", (210, 210, 210), FONT_SMALL)
+    _text(draw, (45, y + 15), "遗器总分" if is_sr else "圣遗物总分", (210, 210, 210), FONT_SMALL)
     _text(draw, (170, y + 9), f"{total}", (255, 232, 170), FONT_CARD_TITLE)
     _text(draw, (278, y + 15), "评级", (210, 210, 210), FONT_SMALL)
     _text(draw, (330, y + 9), artifact_rank(total), (144, 232, 74), FONT_CARD_TITLE)
     _text(draw, (45, y + 48), f"评分规则：{_fit_text(title, 40)}", (170, 164, 145), FONT_TINY)
     y += 92
     card_w, card_h = 176, 204
-    for idx in range(5):
+    for idx in range(max_count):
         col = idx % 3
         row = idx // 3
         x = 25 + col * 187
@@ -1238,8 +1257,8 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
         if icon:
             _paste(img, icon, (x + 12, yy + 12))
         else:
-            _text(draw, (x + 24, yy + 23), ARTIFACT_SLOT_ICONS[idx], (255, 247, 230), FONT_SMALL)
-        title = _artifact_name(rel, _reliq_label(idx))
+            _text(draw, (x + 24, yy + 23), (SR_RELIC_SLOT_ICONS if is_sr else ARTIFACT_SLOT_ICONS)[idx], (255, 247, 230), FONT_SMALL)
+        title = _artifact_name(rel, _reliq_label(idx, is_sr))
         _text(draw, (x + 70, yy + 14), _fit_text(title, 6), (245, 228, 183), FONT_SMALL)
         main = _prop_name(rel.get("main_prop") or rel.get("main"))
         main_value = _prop_value(rel.get("main_prop") or rel.get("main"))
@@ -1259,12 +1278,14 @@ def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, c
                                    character_artifact_score, score_reliquary)
 
     title, weight = _weight_for_char(char)
-    reliqs = [r for r in (char.get("reliquaries") or []) if isinstance(r, dict)][:5]
+    is_sr = char.get("game") == "sr"
+    max_count = 6 if is_sr else 5
+    reliqs = [r for r in (char.get("reliquaries") or []) if isinstance(r, dict)][:max_count]
     total, scores, _ = character_artifact_score(char)
-    y = _draw_section_title(draw, y, "圣遗物评分详情", f"{total} 分 [{artifact_rank(total)}]")
+    y = _draw_section_title(draw, y, "遗器评分详情" if is_sr else "圣遗物评分详情", f"{total} 分 [{artifact_rank(total)}]")
     _text(draw, (38, y), f"评分规则：{title}", (210, 200, 176), FONT_TINY)
     y += 26
-    for idx in range(5):
+    for idx in range(max_count):
         rel = reliqs[idx] if idx < len(reliqs) else {}
         score = scores[idx] if idx < len(scores) else (score_reliquary(rel, weight, idx) if rel else 0)
         x, h = 25, 112
@@ -1274,12 +1295,12 @@ def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, c
         if icon:
             _paste(img, icon, (x + 14, y + 20))
         else:
-            _text(draw, (x + 35, y + 39), ARTIFACT_SLOT_ICONS[idx], (255, 247, 230), FONT_TEXT)
-        name = _artifact_name(rel, _reliq_label(idx))
+            _text(draw, (x + 35, y + 39), (SR_RELIC_SLOT_ICONS if is_sr else ARTIFACT_SLOT_ICONS)[idx], (255, 247, 230), FONT_TEXT)
+        name = _artifact_name(rel, _reliq_label(idx, is_sr))
         main = _prop_name(rel.get("main_prop") or rel.get("main"))
         level = _artifact_level(rel.get("level"))
         _text(draw, (x + 96, y + 16), _fit_text(name, 15), (245, 228, 183), FONT_SMALL)
-        _text(draw, (x + 96, y + 44), f"{_reliq_label(idx)}  +{level}  主词条：{main}", (218, 218, 218), FONT_TINY)
+        _text(draw, (x + 96, y + 44), f"{_reliq_label(idx, is_sr)}  +{level}  主词条：{main}", (218, 218, 218), FONT_TINY)
         subs = []
         for prop in rel.get("sub_props") or []:
             if isinstance(prop, dict):
@@ -1305,6 +1326,15 @@ def _draw_miao_profile(img: Image.Image, draw: ImageDraw.ImageDraw, result: Pane
     return y
 
 
+def _iter_cards(cards: Iterable[Dict[str, Any]], game: str = "gs") -> Iterable[Dict[str, Any]]:
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        item = dict(card)
+        item.setdefault("game", game)
+        yield item
+
+
 def _crop_panel_canvas(img: Image.Image, content_bottom: int, footer: str) -> Image.Image:
     final_height = max(content_bottom + 74, 760)
     final_height = min(final_height, img.height)
@@ -1315,13 +1345,13 @@ def _crop_panel_canvas(img: Image.Image, content_bottom: int, footer: str) -> Im
 
 
 async def render_panel_list_image(result: PanelResult, updated: bool = False) -> bytes:
-    characters = list(_iter_cards(result.characters or result.avatars or []))[:32]
+    characters = list(_iter_cards(result.characters or result.avatars or [], result.game))[:32]
     img = _draw_profile_list_image(result, characters, updated)
     return await convert_img(img)
 
 
 async def render_panel_image(result: PanelResult) -> bytes:
-    characters = list(_iter_cards((result.characters or [])[:8]))
+    characters = list(_iter_cards((result.characters or [])[:8], result.game))
     if len(characters) == 1:
         width = 600
         height = 1760
@@ -1335,14 +1365,14 @@ async def render_panel_image(result: PanelResult) -> bytes:
 
 
 async def render_single_panel_image(result: PanelResult, character_query: str = "") -> bytes:
-    characters = list(_iter_cards(result.characters or []))
+    characters = list(_iter_cards(result.characters or [], result.game))
     if character_query:
         q = character_query.strip().lower()
         resolved = q
         try:
             from .alias_data import resolve_alias
 
-            resolved = (resolve_alias(character_query) or character_query).strip().lower()
+            resolved = (resolve_alias(character_query, game=result.game) or character_query).strip().lower()
         except Exception:
             pass
         filtered = [
@@ -1363,23 +1393,24 @@ async def render_single_panel_image(result: PanelResult, character_query: str = 
             signature=result.signature,
             avatars=result.avatars,
             characters=characters[:1],
+            game=result.game,
         )
     return await render_panel_image(result)
 
 
 async def render_artifact_image(result: PanelResult, character_query: str = "") -> bytes:
-    characters = list(_iter_cards(result.characters or []))
+    characters = list(_iter_cards(result.characters or [], result.game))
     if character_query:
         q = character_query.strip().lower()
         try:
             from .alias_data import resolve_alias
 
-            resolved = (resolve_alias(character_query) or character_query).strip().lower()
+            resolved = (resolve_alias(character_query, game=result.game) or character_query).strip().lower()
         except Exception:
             resolved = q
         characters = [c for c in characters if q in _char_match_text(c) or resolved in _char_match_text(c)]
         if not characters:
-            _raise_unknown_character(result, character_query, list(_iter_cards(result.characters or [])))
+            _raise_unknown_character(result, character_query, list(_iter_cards(result.characters or [], result.game)))
     if not characters:
         raise ValueError("当前数据源没有返回可渲染的角色详情")
     char = characters[0]
@@ -1397,7 +1428,7 @@ async def render_artifact_image(result: PanelResult, character_query: str = "") 
 async def render_artifact_list_image(result: PanelResult) -> bytes:
     from .artifact_service import artifact_rank, character_artifact_score
 
-    chars = list(_iter_cards(result.characters or []))
+    chars = list(_iter_cards(result.characters or [], result.game))
     rows = []
     for char in chars:
         total, scores, title = character_artifact_score(char)
@@ -1407,17 +1438,18 @@ async def render_artifact_list_image(result: PanelResult) -> bytes:
     height = 170 + max(1, len(rows[:16])) * 74 + 80
     img = _gradient_bg(width, height).convert("RGBA")
     draw = ImageDraw.Draw(img)
-    _text(draw, (52, 42), "喵喵原神圣遗物列表", (255, 247, 220), FONT_TITLE)
+    is_sr = result.game == "sr"
+    _text(draw, (52, 42), "喵喵崩铁遗器列表" if is_sr else "喵喵原神圣遗物列表", (255, 247, 220), FONT_TITLE)
     _text(draw, (56, 100), f"UID {result.uid} · 数据源 {result.source} · 按总评分排序", (199, 210, 230), FONT_SMALL)
     if not rows:
         _rounded_r(draw, (52, 160, width - 52, 280), 14, (31, 39, 61), (70, 83, 120), 1)
-        _text(draw, (82, 200), "当前数据源没有返回圣遗物详情。", (248, 244, 232), FONT_TEXT)
+        _text(draw, (82, 200), "当前数据源没有返回遗器详情。" if is_sr else "当前数据源没有返回圣遗物详情。", (248, 244, 232), FONT_TEXT)
     for idx, (total, char, scores, title) in enumerate(rows[:16], start=1):
         y = 160 + (idx - 1) * 74
         _rounded_r(draw, (52, y, width - 52, y + 60), 12, (31, 39, 61), (70, 83, 120), 1)
         _text(draw, (72, y + 16), f"{idx}", (255, 232, 170), FONT_TEXT)
         _text(draw, (120, y + 12), _char_name(char), (248, 244, 232), FONT_TEXT)
-        _text(draw, (300, y + 14), " / ".join(f"{x:.1f}" for x in scores[:5]) or "无圣遗物", (190, 201, 221), FONT_TINY)
+        _text(draw, (300, y + 14), " / ".join(f"{x:.1f}" for x in scores[:6 if is_sr else 5]) or ("无遗器" if is_sr else "无圣遗物"), (190, 201, 221), FONT_TINY)
         _text(draw, (650, y + 12), f"{total:.1f} [{artifact_rank(total)}]", (144, 232, 74), FONT_TEXT)
         _text(draw, (120, y + 38), _fit_text(title, 28), (160, 171, 190), FONT_TINY)
     _text(draw, (54, height - 42), "评分权重使用 gscore_miao-plugin 内置适配规则", (145, 158, 186), FONT_TINY)

@@ -14,6 +14,7 @@ class PanelResult:
     signature: str = ""
     avatars: Optional[List[Dict[str, Any]]] = None
     characters: Optional[List[Dict[str, Any]]] = None
+    game: str = "gs"
 
 
 class PanelSourceError(RuntimeError):

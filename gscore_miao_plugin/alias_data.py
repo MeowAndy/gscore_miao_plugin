@@ -89,21 +89,62 @@ CHARACTER_ALIASES: Dict[str, List[str]] = {
     "茜特菈莉": ["citlali"],
 }
 
+STAR_RAIL_CHARACTER_ALIASES: Dict[str, List[str]] = {
+    "黄泉": ["acheron"],
+    "流萤": ["萨姆", "firefly"],
+    "卡芙卡": ["kafka"],
+    "刃": ["blade"],
+    "丹恒•饮月": ["饮月", "丹恒饮月", "饮月君", "dhil"],
+    "镜流": ["jingliu"],
+    "符玄": ["fuxuan", "符卿"],
+    "花火": ["火花", "sparkle"],
+    "知更鸟": ["鸟", "robin"],
+    "阮•梅": ["阮梅", "软妹", "ruanmei"],
+    "砂金": ["aventurine"],
+    "飞霄": ["feixiao"],
+    "黑天鹅": ["黑鹅", "blackswan"],
+    "银狼": ["sw", "silverwolf"],
+    "景元": ["神君", "jingyuan"],
+    "希儿": ["seele"],
+    "托帕&账账": ["托帕", "账账", "topaz"],
+    "真理医生": ["真理", "dr ratio", "ratio"],
+    "藿藿": ["霍霍", "huohuo"],
+    "罗刹": ["luocha"],
+    "椒丘": ["jiaoqiu"],
+    "灵砂": ["lingsha"],
+    "星期日": ["周日", "sunday"],
+    "大黑塔": ["大黑塔女士", "the herta"],
+    "缇宝": ["tribbie"],
+    "万敌": ["mydei"],
+    "遐蝶": ["castorice"],
+    "赛飞儿": ["cipher"],
+    "风堇": ["hyacine"],
+    "阿格莱雅": ["aglaea"],
+    "翡翠": ["jade"],
+    "乱破": ["rappa"],
+    "波提欧": ["boothill"],
+    "云璃": ["yunli"],
+    "黑塔": ["herta"],
+    "三月七": ["三月", "march"],
+    "三月七·巡猎": ["巡猎三月", "巡猎三月七"],
+}
 
-def alias_index() -> Dict[str, str]:
+
+def alias_index(game: str = "gs") -> Dict[str, str]:
     index: Dict[str, str] = {}
-    for name, aliases in CHARACTER_ALIASES.items():
+    source = STAR_RAIL_CHARACTER_ALIASES if game in {"sr", "starrail", "hkrpg"} else CHARACTER_ALIASES
+    for name, aliases in source.items():
         index[name.lower()] = name
         for alias in aliases:
             index[alias.lower()] = name
     return index
 
 
-def resolve_alias(query: str) -> str | None:
+def resolve_alias(query: str, game: str = "gs") -> str | None:
     q = (query or "").strip().lower()
     if not q:
         return None
-    index = alias_index()
+    index = alias_index(game)
     if q in index:
         return index[q]
     for key, name in index.items():

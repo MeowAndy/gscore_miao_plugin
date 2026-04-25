@@ -66,16 +66,42 @@ def _dig(data: Dict[str, Any], *keys: str) -> Any:
 
 def _avatars_from(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     avatars = _dig(data, "avatars", "avatarInfoList", "list", "data.avatars", "data.avatarInfoList", "data.list")
-    return avatars if isinstance(avatars, list) else []
+    if isinstance(avatars, list):
+        return avatars
+    detail = _dig(data, "detailInfo", "data.detailInfo")
+    if isinstance(detail, dict):
+        merged: List[Dict[str, Any]] = []
+        for key in ("assistAvatarList", "avatarDetailList"):
+            value = detail.get(key) or []
+            if isinstance(value, list):
+                merged.extend(x for x in value if isinstance(x, dict))
+        if merged:
+            return merged
+    player = _dig(data, "playerDetailInfo", "data.playerDetailInfo")
+    if isinstance(player, dict):
+        merged = []
+        assist = player.get("assistAvatar")
+        if isinstance(assist, dict):
+            merged.append(assist)
+        display = player.get("displayAvatars") or []
+        if isinstance(display, list):
+            merged.extend(x for x in display if isinstance(x, dict))
+        if merged:
+            return merged
+    return []
 
 
 def _nickname_from(data: Dict[str, Any]) -> str:
-    return str(_dig(data, "nickname", "name", "playerInfo.nickname", "data.nickname", "data.name", "data.playerInfo.nickname") or "")
+    return str(_dig(data, "nickname", "name", "playerInfo.nickname", "detailInfo.nickname", "playerDetailInfo.nickname", "data.nickname", "data.name", "data.playerInfo.nickname") or "")
 
 
 def _level_from(data: Dict[str, Any]) -> Optional[int]:
-    level = _dig(data, "level", "playerInfo.level", "data.level", "data.playerInfo.level")
+    level = _dig(data, "level", "playerInfo.level", "detailInfo.level", "playerDetailInfo.level", "data.level", "data.playerInfo.level")
     return level if isinstance(level, int) else None
+
+
+def _cache_key(source: str, game: str) -> str:
+    return f"{source}:{game}" if game != "gs" else source
 
 
 def _to_int(value: Any, default: int = 0) -> int:
@@ -110,6 +136,14 @@ def _normalize_prop_name(name: Any) -> str:
         "critDamage": "暴击伤害",
         "energy_recharge": "充能效率",
         "recharge": "充能效率",
+        "speed": "速度",
+        "spd": "速度",
+        "break_effect": "击破特攻",
+        "breakEffect": "击破特攻",
+        "effect_hit": "效果命中",
+        "effectHitRate": "效果命中",
+        "effect_res": "效果抵抗",
+        "effectRes": "效果抵抗",
     }
     return mapping.get(text, text)
 
@@ -137,6 +171,14 @@ def _props_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
         "critDamage": "暴击伤害",
         "energy_recharge": "充能效率",
         "recharge": "充能效率",
+        "speed": "速度",
+        "spd": "速度",
+        "break_effect": "击破特攻",
+        "breakEffect": "击破特攻",
+        "effect_hit": "效果命中",
+        "effectHitRate": "效果命中",
+        "effect_res": "效果抵抗",
+        "effectRes": "效果抵抗",
     }.items():
         if src_key in avatar and dst_key not in props:
             props[dst_key] = avatar[src_key]
@@ -144,11 +186,11 @@ def _props_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _weapon_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
-    weapon = avatar.get("weapon") or {}
+    weapon = avatar.get("weapon") or avatar.get("equipment") or {}
     if not isinstance(weapon, dict):
         return {}
     return {
-        "item_id": weapon.get("item_id") or weapon.get("itemId") or weapon.get("id"),
+        "item_id": weapon.get("item_id") or weapon.get("itemId") or weapon.get("id") or weapon.get("tid"),
         "name": weapon.get("name") or weapon.get("weapon_name") or weapon.get("weaponName"),
         "level": weapon.get("level") or weapon.get("lv"),
         "promote_level": weapon.get("promote") or weapon.get("promote_level"),
@@ -158,7 +200,7 @@ def _weapon_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _reliquaries_from_avatar(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
-    raw = avatar.get("reliquaries") or avatar.get("artifacts") or avatar.get("artis") or avatar.get("relics") or []
+    raw = avatar.get("reliquaries") or avatar.get("artifacts") or avatar.get("artis") or avatar.get("relics") or avatar.get("relicList") or []
     if isinstance(raw, dict):
         iterable = raw.values()
     elif isinstance(raw, list):
@@ -171,14 +213,14 @@ def _reliquaries_from_avatar(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
             continue
         reliqs.append(
             {
-                "item_id": item.get("item_id") or item.get("itemId") or item.get("id"),
+                "item_id": item.get("item_id") or item.get("itemId") or item.get("id") or item.get("tid"),
                 "name": item.get("name"),
                 "set_name": item.get("set") or item.get("set_name") or item.get("setName"),
                 "pos": item.get("pos") or item.get("idx") or item.get("equipType"),
                 "level": item.get("level") or item.get("lv"),
                 "rarity": item.get("star") or item.get("rarity"),
-                "main_prop": item.get("main_prop") or item.get("mainId") or item.get("main") or item.get("mainPropId"),
-                "sub_props": item.get("sub_props") or item.get("attrs") or item.get("attrIds") or item.get("appendPropIdList") or [],
+                "main_prop": item.get("main_prop") or item.get("mainId") or item.get("main") or item.get("mainPropId") or item.get("mainAffixId"),
+                "sub_props": item.get("sub_props") or item.get("attrs") or item.get("attrIds") or item.get("appendPropIdList") or item.get("subAffixList") or [],
             }
         )
     return reliqs
@@ -275,7 +317,7 @@ def _mys_reliquaries(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
     return reliqs
 
 
-def _characters_from_mys_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _characters_from_mys_avatars(avatars: List[Dict[str, Any]], game: str = "gs") -> List[Dict[str, Any]]:
     characters: List[Dict[str, Any]] = []
     for avatar in avatars:
         if not isinstance(avatar, dict):
@@ -295,12 +337,13 @@ def _characters_from_mys_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str
                 "weapon": _weapon_from_avatar(avatar),
                 "reliquaries": _mys_reliquaries(avatar) or _reliquaries_from_avatar(avatar),
                 "fight_props": _mys_fight_props(avatar),
+                "game": game,
             }
         )
     return characters
 
 
-def _characters_from_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _characters_from_avatars(avatars: List[Dict[str, Any]], game: str = "gs") -> List[Dict[str, Any]]:
     characters: List[Dict[str, Any]] = []
     for avatar in avatars:
         if not isinstance(avatar, dict):
@@ -310,6 +353,8 @@ def _characters_from_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str, An
             {
                 "avatar_id": base.get("id") or avatar.get("id") or avatar.get("avatar_id") or avatar.get("avatarId"),
                 "name": base.get("name") or _name_from_avatar(avatar),
+                "element": base.get("element") or avatar.get("element"),
+                "rarity": base.get("rarity") or avatar.get("rarity"),
                 "level": base.get("level") or avatar.get("level") or avatar.get("lv"),
                 "promote_level": base.get("promote_level") or avatar.get("promote") or avatar.get("promote_level"),
                 "constellation": base.get("actived_constellation_num") or avatar.get("cons") or avatar.get("constellation") or avatar.get("actived_constellation_num"),
@@ -318,13 +363,14 @@ def _characters_from_avatars(avatars: List[Dict[str, Any]]) -> List[Dict[str, An
                 "weapon": _weapon_from_avatar(avatar),
                 "reliquaries": _mys_reliquaries(avatar) or _reliquaries_from_avatar(avatar),
                 "fight_props": _mys_fight_props(avatar),
+                "game": game,
             }
         )
     return characters
 
 
 def _signature_from(data: Dict[str, Any]) -> str:
-    return str(_dig(data, "signature", "playerInfo.signature", "data.signature", "data.playerInfo.signature") or "")
+    return str(_dig(data, "signature", "playerInfo.signature", "detailInfo.signature", "playerDetailInfo.signature", "data.signature", "data.playerInfo.signature") or "")
 
 
 def _server_id(uid: str) -> str:
@@ -583,6 +629,7 @@ class EnkaPanelSource(BasePanelSource):
             signature=str(player.get("signature") or ""),
             avatars=raw.get("avatarInfoList") or [],
             characters=characters,
+            game="gs",
         )
         set_cached_panel(self.source_name, uid, result)
         return result
@@ -591,15 +638,18 @@ class EnkaPanelSource(BasePanelSource):
 class MiaoPanelSource(BasePanelSource):
     source_name = "miao"
 
+    def __init__(self, game: str = "gs"):
+        self.game = "sr" if game in {"sr", "starrail", "hkrpg"} else "gs"
+
     async def fetch(self, uid: str) -> PanelResult:
-        cached = get_cached_panel(self.source_name, uid)
+        cached = get_cached_panel(_cache_key(self.source_name, self.game), uid)
         if cached:
             return cached
 
         base_url = _strip_url(MiaoConfig.get_config("MiaoApiBaseUrl").data)
         qq = str(MiaoConfig.get_config("MiaoApiQQ").data or "").strip()
         token = str(MiaoConfig.get_config("MiaoApiToken").data or "").strip()
-        game = str(MiaoConfig.get_config("MiaoApiGame").data or "gs")
+        game = self.game or str(MiaoConfig.get_config("MiaoApiGame").data or "gs")
         if not base_url:
             raise PanelSourceError(self.source_name, "Miao API 地址未配置")
         if not token:
@@ -636,17 +686,19 @@ class MiaoPanelSource(BasePanelSource):
             level=_level_from(data),
             signature=_signature_from(data),
             avatars=_avatars_from(data),
-            characters=_characters_from_avatars(_avatars_from(data)),
+            characters=_characters_from_avatars(_avatars_from(data), self.game),
+            game=self.game,
         )
-        set_cached_panel(self.source_name, uid, result)
+        set_cached_panel(_cache_key(self.source_name, self.game), uid, result)
         return result
 
 
 class MysPanelSource(BasePanelSource):
     source_name = "mys"
 
-    def __init__(self, cookie: str = ""):
+    def __init__(self, cookie: str = "", game: str = "gs"):
         self.cookie = cookie
+        self.game = "sr" if game in {"sr", "starrail", "hkrpg"} else "gs"
 
     async def _fetch_with_gscore_api(self, uid: str, cookie: str) -> PanelResult:
         index_data = await mys_api.get_info(uid, cookie)
@@ -673,7 +725,8 @@ class MysPanelSource(BasePanelSource):
             level=(data.get("role") or {}).get("level"),
             signature="",
             avatars=data.get("avatars") or [],
-            characters=_characters_from_mys_avatars(data.get("avatars") or []),
+            characters=_characters_from_mys_avatars(data.get("avatars") or [], "gs"),
+            game="gs",
         )
 
     async def _get_json_with_retry(
@@ -712,7 +765,10 @@ class MysPanelSource(BasePanelSource):
         return raw
 
     async def fetch(self, uid: str) -> PanelResult:
-        cached = get_cached_panel(self.source_name, uid)
+        if self.game == "sr":
+            raise PanelSourceError(self.source_name, "星铁米游社面板源暂未适配，请使用 auto/miao/mihomo/avocado/enkahsr")
+
+        cached = get_cached_panel(_cache_key(self.source_name, self.game), uid)
         if cached:
             return cached
 
@@ -776,20 +832,22 @@ class MysPanelSource(BasePanelSource):
             level=(data.get("role") or {}).get("level"),
             signature="",
             avatars=data.get("avatars") or [],
-            characters=_characters_from_mys_avatars(data.get("avatars") or []),
+            characters=_characters_from_mys_avatars(data.get("avatars") or [], "gs"),
+            game="gs",
         )
         set_cached_panel(self.source_name, uid, result)
         return result
 
 
 class SimpleHttpPanelSource(BasePanelSource):
-    def __init__(self, source_name: str, config_key: str, path_template: str):
+    def __init__(self, source_name: str, config_key: str, path_template: str, game: str = "gs"):
         self.source_name = source_name
         self.config_key = config_key
         self.path_template = path_template
+        self.game = "sr" if game in {"sr", "starrail", "hkrpg"} else "gs"
 
     async def fetch(self, uid: str) -> PanelResult:
-        cached = get_cached_panel(self.source_name, uid)
+        cached = get_cached_panel(_cache_key(self.source_name, self.game), uid)
         if cached:
             return cached
 
@@ -817,9 +875,10 @@ class SimpleHttpPanelSource(BasePanelSource):
             level=_level_from(data),
             signature=_signature_from(data),
             avatars=_avatars_from(data),
-            characters=_characters_from_avatars(_avatars_from(data)),
+            characters=_characters_from_avatars(_avatars_from(data), self.game),
+            game=self.game,
         )
-        set_cached_panel(self.source_name, uid, result)
+        set_cached_panel(_cache_key(self.source_name, self.game), uid, result)
         return result
 
 
@@ -827,25 +886,39 @@ def get_source(name: str) -> BasePanelSource:
     return get_source_with_context(name)
 
 
-def get_source_with_context(name: str, user_cfg: Optional[Dict[str, Any]] = None) -> BasePanelSource:
+def get_source_with_context(name: str, user_cfg: Optional[Dict[str, Any]] = None, game: str = "gs") -> BasePanelSource:
     user_cfg = user_cfg or {}
+    game = "sr" if game in {"sr", "starrail", "hkrpg"} else "gs"
     source_map = {
         "enka": EnkaPanelSource,
-        "miao": MiaoPanelSource,
     }
     if name in source_map:
         return source_map[name]()
+    if name == "miao":
+        return MiaoPanelSource(game)
     if name == "mys":
-        return MysPanelSource(str(user_cfg.get("mys_cookie") or "").strip())
+        return MysPanelSource(str(user_cfg.get("mys_cookie") or "").strip(), game)
     if name == "mgg":
         return SimpleHttpPanelSource("mgg", "MggApiBaseUrl", "api/uid/{uid}")
     if name == "hutao":
         return SimpleHttpPanelSource("hutao", "HutaoApiBaseUrl", "{uid}")
+    if name in {"mihomo", "homo"}:
+        return SimpleHttpPanelSource("mihomo", "MihomoApiBaseUrl", "{uid}", "sr")
+    if name == "avocado":
+        return SimpleHttpPanelSource("avocado", "AvocadoApiBaseUrl", "{uid}", "sr")
+    if name in {"enkahsr", "enkaHSR"}:
+        return SimpleHttpPanelSource("enkahsr", "EnkaHSRApiBaseUrl", "{uid}", "sr")
     raise PanelSourceError(name, "未知面板数据源")
 
 
-def get_source_order(user_source: str) -> List[str]:
+def get_source_order(user_source: str, game: str = "gs") -> List[str]:
     allowed = set(MiaoConfig.get_config("AllowedPanelServers").data)
+    game = "sr" if game in {"sr", "starrail", "hkrpg"} else "gs"
+    user_source = {"homo": "mihomo", "enkaHSR": "enkahsr"}.get(user_source, user_source)
+    if game == "sr":
+        # 兼容已生成过旧配置的部署：旧 AllowedPanelServers 里没有星铁公开源时，仍允许星铁 auto 回退。
+        allowed |= {"auto", "miao", "mys", "mihomo", "avocado", "enkahsr"}
+        allowed = {x for x in allowed if x in {"auto", "miao", "mys", "mihomo", "avocado", "enkahsr"}}
     if user_source and user_source != "auto":
         if user_source not in allowed:
             return []
@@ -853,7 +926,11 @@ def get_source_order(user_source: str) -> List[str]:
         if not fallback:
             return [user_source]
         priority = [x for x in MiaoConfig.get_config("PanelSourcePriority").data if x in allowed]
+        if game == "sr" and not priority:
+            priority = [x for x in ["miao", "mihomo", "avocado", "enkahsr"] if x in allowed]
         return [user_source] + [x for x in priority if x != user_source]
 
+    if game == "sr":
+        return [x for x in ["miao", "mihomo", "avocado", "enkahsr"] if x in allowed] or ["mihomo"]
     order = [x for x in MiaoConfig.get_config("PanelSourcePriority").data if x in allowed]
     return order or [x for x in ["miao", "enka", "mys"] if x in allowed]

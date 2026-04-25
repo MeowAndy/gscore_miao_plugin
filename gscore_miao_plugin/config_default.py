@@ -45,8 +45,8 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     "AllowedPanelServers": GsListStrConfig(
         "可选面板服务",
         "展示给用户可选择的面板服务列表",
-        ["auto", "miao", "enka", "mgg", "hutao", "mys"],
-        options=["auto", "miao", "enka", "mgg", "hutao", "mys"],
+        ["auto", "miao", "enka", "mgg", "hutao", "mys", "mihomo", "avocado", "enkahsr"],
+        options=["auto", "miao", "enka", "mgg", "hutao", "mys", "mihomo", "avocado", "enkahsr"],
     ),
     "DefaultPanelServer": GsStrConfig(
         "默认面板服务",
@@ -150,7 +150,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "Miao API游戏类型",
         "请求 Miao API 时携带的 game 参数",
         "gs",
-        options=["gs"],
+        options=["gs", "sr"],
     ),
     "EnkaApiBaseUrl": GsStrConfig(
         "Enka API地址",
@@ -208,6 +208,21 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "胡桃API地址",
         "Hutao Enka 代理基础地址",
         "http://enka-api.hut.ao",
+    ),
+    "MihomoApiBaseUrl": GsStrConfig(
+        "Mihomo API地址",
+        "星铁 Mihomo 面板数据源基础地址",
+        "https://api.mihomo.me/sr_info",
+    ),
+    "AvocadoApiBaseUrl": GsStrConfig(
+        "Avocado API地址",
+        "星铁 Avocado 面板数据源基础地址",
+        "https://avocado.wiki/v1/raw/info",
+    ),
+    "EnkaHSRApiBaseUrl": GsStrConfig(
+        "EnkaHSR API地址",
+        "星铁 Enka Network 面板数据源基础地址",
+        "https://enka.network/api/hsr/uid",
     ),
     "PanelCacheTTL": GsIntConfig(
         "面板缓存秒数",

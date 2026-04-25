@@ -73,11 +73,11 @@ STAR_RAIL_HELP_GROUPS: List[HelpGroup] = [
     {
         "group": "角色面板",
         "items": [
-            {"cmd": "{prefix}崩铁面板 [UID]", "desc": "查看已获取面板数据的星铁角色列表"},
+            {"cmd": "{prefix}崩铁面板 [UID]", "desc": "查看已获取面板数据的星铁角色列表，可省略 UID"},
             {"cmd": "{prefix}崩铁角色面板 [UID]", "desc": "面板角色列表入口，对齐 #星铁角色面板"},
-            {"cmd": "{prefix}崩铁更新面板 [UID]", "desc": "拉取星铁橱窗/公开角色详情并刷新缓存"},
-            {"cmd": "{prefix}崩铁全部面板更新 [UID]", "desc": "批量更新星铁面板数据"},
-            {"cmd": "{prefix}崩铁米游社更新面板 <UID>", "desc": "通过米游社接口刷新星铁面板数据"},
+            {"cmd": "{prefix}崩铁更新面板 [UID]", "desc": "可省略 UID，自动使用喵喵登录/崩铁设置uid 保存的 UID"},
+            {"cmd": "{prefix}崩铁全部面板更新 [UID]", "desc": "批量更新星铁面板数据，可省略 UID"},
+            {"cmd": "{prefix}崩铁米游社更新面板 [UID]", "desc": "米游社星铁源入口，可省略 UID，当前会提示适配状态"},
             {"cmd": "{prefix}崩铁重载面板 [UID]", "desc": "重新加载本地星铁面板缓存"},
             {"cmd": "{prefix}崩铁删除面板 [UID]", "desc": "删除本地星铁面板数据"},
             {"cmd": "{prefix}崩铁面板服务 <auto|miao|mihomo|avocado|enkahsr>", "desc": "星铁面板源：Miao、Mihomo、Avocado、EnkaHSR"},
@@ -86,12 +86,12 @@ STAR_RAIL_HELP_GROUPS: List[HelpGroup] = [
     {
         "group": "单角色详情",
         "items": [
-            {"cmd": "{prefix}崩铁黄泉面板 <UID>", "desc": "查看单角色完整面板图，兼容 miao-plugin 风格"},
-            {"cmd": "{prefix}崩铁黄泉详情 <UID>", "desc": "展示属性、光锥、行迹、遗器与星魂信息"},
-            {"cmd": "{prefix}崩铁黄泉遗器 <UID>", "desc": "查看单角色遗器评分详情"},
+            {"cmd": "{prefix}崩铁黄泉面板 [UID]", "desc": "查看单角色完整面板图，兼容 miao-plugin 风格"},
+            {"cmd": "{prefix}崩铁黄泉详情 [UID]", "desc": "展示属性、光锥、行迹、遗器与星魂信息"},
+            {"cmd": "{prefix}崩铁黄泉遗器 [UID]", "desc": "查看单角色遗器评分详情"},
             {"cmd": "{prefix}崩铁遗器列表 [UID]", "desc": "按评分查看公开角色遗器列表"},
-            {"cmd": "{prefix}崩铁黄泉伤害 <UID>", "desc": "查看角色通用伤害估算/排名伤害项"},
-            {"cmd": "{prefix}崩铁黄泉光锥1 <UID>", "desc": "面板计算中替换/模拟光锥（规划）"},
+            {"cmd": "{prefix}崩铁黄泉伤害 [UID]", "desc": "查看角色通用伤害估算/排名伤害项"},
+            {"cmd": "{prefix}崩铁黄泉光锥1 [UID]", "desc": "面板计算中替换/模拟光锥（规划）"},
             {"cmd": "{prefix}崩铁黄泉满星魂满行迹", "desc": "模拟星魂、行迹、遗器套装等面板变化（规划）"},
             {"cmd": "{prefix}崩铁刷新行迹", "desc": "强制刷新星铁角色行迹/技能数据"},
         ],

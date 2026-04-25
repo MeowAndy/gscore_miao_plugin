@@ -127,13 +127,13 @@ async def unbind_mys_cookie(user_id: str, bot_id: str) -> Dict[str, Any]:
         return merged
 
 
-async def unbind_uid(user_id: str, bot_id: str) -> Dict[str, Any]:
+async def unbind_uid(user_id: str, bot_id: str, game: str = "gs") -> Dict[str, Any]:
     async with _LOCK:
         data = _load_json()
         k = _user_key(user_id, bot_id)
         old = data.get(k, {})
         merged = {**old, "updated_at": int(time.time())}
-        merged.pop("uid", None)
+        merged.pop("sr_uid" if game in {"sr", "starrail", "hkrpg"} else "uid", None)
         data[k] = merged
         _save_json(data)
         return merged
