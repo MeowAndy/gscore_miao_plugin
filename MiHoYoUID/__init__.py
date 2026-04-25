@@ -9,11 +9,19 @@ from .startup import ensure_image_panel_defaults
 ensure_image_panel_defaults()
 
 _prefix = str(MiaoConfig.get_config("CommandPrefix").data or "喵喵").strip() or "喵喵"
+_force_prefix = [_prefix, "miao", "MM"]
 
 Plugins(
     name=PLUGIN_NAME,
-    force_prefix=[_prefix, "miao", "MM"],
+    force_prefix=_force_prefix,
     allow_empty_prefix=False,
+)
+
+Plugins(
+    name="gscore_miao-plugin",
+    force_prefix=_force_prefix,
+    allow_empty_prefix=False,
+    force=True,
 )
 
 try:
