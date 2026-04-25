@@ -13,8 +13,8 @@ from ..mys_service import (daily_sign, daily_sign_starrail, fetch_sign_info,
                            normalize_cookie, qrcode_login_cookie,
                            validate_cookie)
 from ..settings import merge_user_cfg
-from ..store import (bind_mys_cookie, get_user_cfg, set_user_cfg,
-                     unbind_mys_cookie)
+from ..store import (bind_mys_cookie, get_user_cfg, set_group_bot_self_id,
+                     set_user_cfg, unbind_mys_cookie)
 
 sv_login = SV("GsCoreMiao登录签到")
 
@@ -261,10 +261,15 @@ async def send_all_daily_sign(bot: Bot, ev: Event):
 async def send_sign_result_subscribe(bot: Bot, ev: Event):
     if not is_admin_event(ev):
         return await bot.send("只有主人可以订阅签到结果")
+    if ev.bot_id != "onebot":
+        logger.debug(f"非onebot禁止订阅喵喵签到结果 【{ev.bot_id}】")
+        return
     from ..auto_sign import SIGN_RESULT_SUBSCRIBE
 
     option = "关闭" if "取消" in getattr(ev, "raw_text", "") else "开启"
     try:
+        if option == "开启" and ev.group_id:
+            await set_group_bot_self_id(str(ev.group_id), str(ev.bot_self_id or ""))
         if option == "关闭":
             await gs_subscribe.delete_subscribe("single", SIGN_RESULT_SUBSCRIBE, ev)
         else:

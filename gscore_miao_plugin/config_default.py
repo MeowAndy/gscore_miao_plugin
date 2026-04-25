@@ -111,6 +111,16 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "每日自动执行米游社签到的时间，格式为 [小时, 分钟]，例如 [8, 0]",
         ["8", "0"],
     ),
+    "PrivateSignReport": GsBoolConfig(
+        "签到私聊报告",
+        "关闭后将不再给私聊订阅者推送自动/全部签到统计",
+        True,
+    ),
+    "GroupSignReport": GsBoolConfig(
+        "签到群组报告",
+        "关闭后将不再给群聊订阅者推送自动/全部签到统计",
+        True,
+    ),
     "LoginHelpUrl": GsStrConfig(
         "登录教程链接",
         "喵喵登录 未携带 Cookie 时展示的教程链接，可填自建登录页或说明文档",

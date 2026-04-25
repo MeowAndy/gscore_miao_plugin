@@ -31,6 +31,27 @@ def _user_key(user_id: str, bot_id: str) -> str:
     return f"{bot_id}:{user_id}"
 
 
+async def get_group_bot_self_id(group_id: str) -> str:
+    if not group_id:
+        return ""
+    async with _LOCK:
+        data = _load_json()
+        return str(data.get("_sign_group_bots", {}).get(str(group_id), ""))
+
+
+async def set_group_bot_self_id(group_id: str, bot_self_id: str) -> None:
+    if not group_id or not bot_self_id:
+        return
+    async with _LOCK:
+        data = _load_json()
+        group_bots = data.get("_sign_group_bots")
+        if not isinstance(group_bots, dict):
+            group_bots = {}
+        group_bots[str(group_id)] = str(bot_self_id)
+        data["_sign_group_bots"] = group_bots
+        _save_json(data)
+
+
 async def get_user_cfg(user_id: str, bot_id: str) -> Dict[str, Any]:
     async with _LOCK:
         data = _load_json()

@@ -11,7 +11,7 @@ from .config import MiaoConfig
 from .handlers.login import get_sign_uids_for_cfg, run_daily_sign_for_cfg
 from .mys_service import fetch_starrail_roles
 from .settings import merge_user_cfg
-from .store import get_all_user_cfg
+from .store import get_all_user_cfg, get_group_bot_self_id
 
 _JOB_ID = "gscore_miao_auto_daily_sign"
 SIGN_RESULT_SUBSCRIBE = "喵喵签到结果"
@@ -46,6 +46,8 @@ async def auto_daily_sign_task(sign_all: bool = False) -> str:
         error_messages: list[str] = []
 
         for key, raw_cfg in all_cfg.items():
+            if str(key).startswith("_"):
+                continue
             if not isinstance(raw_cfg, dict):
                 continue
             cfg = merge_user_cfg(raw_cfg)
@@ -126,8 +128,24 @@ async def push_sign_result(summary: str) -> None:
     if not subscribes:
         return
     logger.info(f"[喵喵签到结果] 推送订阅统计：{summary}")
+    private_report = MiaoConfig.get_config("PrivateSignReport").data
+    group_report = MiaoConfig.get_config("GroupSignReport").data
     for sub in subscribes:
         try:
+            user_type = str(getattr(sub, "user_type", ""))
+            if user_type == "direct" and not private_report:
+                continue
+            if user_type == "group":
+                if not group_report:
+                    continue
+                group_id = str(getattr(sub, "group_id", "") or "")
+                latest_bot = await get_group_bot_self_id(group_id)
+                if latest_bot and latest_bot != getattr(sub, "bot_self_id", ""):
+                    logger.info(
+                        f"[喵喵签到结果] 更新群订阅 bot_self_id: "
+                        f"{getattr(sub, 'bot_self_id', '')} -> {latest_bot}"
+                    )
+                    sub.bot_self_id = latest_bot
             await sub.send(summary)
             await asyncio.sleep(0.5)
         except Exception as e:
