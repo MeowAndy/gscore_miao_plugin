@@ -5,6 +5,7 @@ from datetime import datetime
 
 from gsuid_core.aps import scheduler
 from gsuid_core.logger import logger
+from gsuid_core.subscribe import gs_subscribe
 
 from .config import MiaoConfig
 from .handlers.login import run_daily_sign_for_cfg
@@ -12,6 +13,7 @@ from .settings import merge_user_cfg
 from .store import get_all_user_cfg
 
 _JOB_ID = "gscore_miao_auto_daily_sign"
+SIGN_RESULT_SUBSCRIBE = "喵喵签到结果"
 _SIGN_LOCK = asyncio.Lock()
 _LAST_RUN_DATE = ""
 
@@ -26,11 +28,11 @@ def _sign_time() -> tuple[int, int]:
     return max(0, min(23, hour)), max(0, min(59, minute))
 
 
-async def auto_daily_sign_task() -> str:
-    if not MiaoConfig.get_config("EnableAutoDailySign").data:
+async def auto_daily_sign_task(sign_all: bool = False) -> str:
+    if not sign_all and not MiaoConfig.get_config("EnableAutoDailySign").data:
         return "自动签到全局开关已关闭"
     if _SIGN_LOCK.locked():
-        return "自动签到正在执行中，已跳过本次任务"
+        return "签到任务正在执行中，已跳过本次任务"
 
     async with _SIGN_LOCK:
         all_cfg = await get_all_user_cfg()
@@ -44,7 +46,7 @@ async def auto_daily_sign_task() -> str:
             if not isinstance(raw_cfg, dict):
                 continue
             cfg = merge_user_cfg(raw_cfg)
-            if not cfg.get("auto_daily_sign"):
+            if not sign_all and not cfg.get("auto_daily_sign"):
                 continue
             total += 1
             cookie = str(cfg.get("mys_cookie") or "")
@@ -66,11 +68,30 @@ async def auto_daily_sign_task() -> str:
                 user_key = str(key).split(":", 1)[-1]
                 messages.append(f"{user_key}: {e}")
 
-        summary = f"[喵喵自动签到] 执行完成：开启 {total} 个，成功 {success} 个，失败 {failed} 个，跳过 {skipped} 个"
+        title = "喵喵全部签到" if sign_all else "喵喵自动签到"
+        total_label = "账号" if sign_all else "开启"
+        summary = f"[{title}] 执行完成：{total_label} {total} 个，成功 {success} 个，失败 {failed} 个，跳过 {skipped} 个"
         if messages:
             summary += "\n" + "\n".join(messages[:10])
         logger.info(summary)
         return summary
+
+
+async def push_sign_result(summary: str) -> None:
+    try:
+        subscribes = await gs_subscribe.get_subscribe(SIGN_RESULT_SUBSCRIBE)
+    except Exception as e:
+        logger.exception(f"[喵喵签到结果] 获取订阅失败：{e}")
+        return
+    if not subscribes:
+        return
+    logger.info(f"[喵喵签到结果] 推送订阅统计：{summary}")
+    for sub in subscribes:
+        try:
+            await sub.send(summary)
+            await asyncio.sleep(0.5)
+        except Exception as e:
+            logger.exception(f"[喵喵签到结果] 推送失败：{e}")
 
 
 async def _auto_daily_sign_tick() -> None:
@@ -84,7 +105,8 @@ async def _auto_daily_sign_tick() -> None:
         return
     _LAST_RUN_DATE = today
     try:
-        await auto_daily_sign_task()
+        summary = await auto_daily_sign_task()
+        await push_sign_result(summary)
     except Exception as e:
         logger.exception(f"[喵喵自动签到] 定时任务异常：{e}")
 

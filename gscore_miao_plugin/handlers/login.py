@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from gsuid_core.bot import Bot
+from gsuid_core.logger import logger
 from gsuid_core.models import Event
+from gsuid_core.subscribe import gs_subscribe
 from gsuid_core.sv import SV
 
-from ..auth import can_use_plugin
+from ..auth import can_use_plugin, is_admin_event
 from ..config import MiaoConfig
 from ..mys_service import (daily_sign, daily_sign_starrail, fetch_sign_info,
                            fetch_starrail_roles, fetch_starrail_sign_info,
@@ -232,3 +234,35 @@ async def send_disable_auto_sign(bot: Bot, ev: Event):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     await set_user_cfg(ev.user_id, ev.bot_id, {"auto_daily_sign": False})
     await bot.send("已关闭自动签到")
+
+
+@sv_login.on_fullmatch(("全部签到", "全部米游社签到"), block=True)
+async def send_all_daily_sign(bot: Bot, ev: Event):
+    if not is_admin_event(ev):
+        return await bot.send("只有主人可以执行全部签到")
+    if not MiaoConfig.get_config("EnableDailySign").data:
+        return await bot.send("米游社签到功能已在网页配置中关闭")
+    from ..auto_sign import auto_daily_sign_task, push_sign_result
+
+    await bot.send("[喵喵全部签到] 已开始执行，请等待全部账号签到完成...")
+    summary = await auto_daily_sign_task(sign_all=True)
+    await bot.send(summary)
+    await push_sign_result(summary)
+
+
+@sv_login.on_regex(r"^(订阅|取消订阅)签到结果$", block=True)
+async def send_sign_result_subscribe(bot: Bot, ev: Event):
+    if not is_admin_event(ev):
+        return await bot.send("只有主人可以订阅签到结果")
+    from ..auto_sign import SIGN_RESULT_SUBSCRIBE
+
+    option = "关闭" if "取消" in getattr(ev, "raw_text", "") else "开启"
+    try:
+        if option == "关闭":
+            await gs_subscribe.delete_subscribe("single", SIGN_RESULT_SUBSCRIBE, ev)
+        else:
+            await gs_subscribe.add_subscribe("single", SIGN_RESULT_SUBSCRIBE, ev)
+    except Exception as e:
+        logger.exception(f"[喵喵签到结果] 订阅设置失败：{e}")
+        return await bot.send(f"订阅签到结果失败：{e}")
+    await bot.send(f"[喵喵签到结果] 已{option}订阅")
