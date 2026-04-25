@@ -34,6 +34,20 @@ def _help_groups_for_display(source_groups, setting_export: bool, setting_reset:
     return groups
 
 
+@sv_help.on_fullmatch(("帮助", "菜单"), block=True)
+async def send_help_hint(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnableHelp").data:
+        return
+    if not can_use_plugin(ev):
+        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
+    prefix = _cmd_prefix()
+    await bot.send(
+        "请指定游戏帮助：\n"
+        f"{prefix}原神帮助\n"
+        f"{prefix}崩铁帮助"
+    )
+
+
 @sv_help.on_fullmatch(("原神帮助", "原神菜单"), block=True)
 async def send_help(bot: Bot, ev: Event):
     if not MiaoConfig.get_config("EnableHelp").data:

@@ -2,6 +2,11 @@
 
 All notable changes to `MiHoYoUID` are documented in this file.
 
+## [0.15.12] - 2026-04-26
+
+### Added
+- 新增单独发送帮助/菜单时的动态前缀提示，引导使用 原神帮助 或 崩铁帮助。
+
 ## [0.15.11] - 2026-04-26
 
 ### Changed
