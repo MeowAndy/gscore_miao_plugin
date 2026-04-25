@@ -2,6 +2,13 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.14.8] - 2026-04-25
+
+### Changed
+- 面板列表角色头像下方补齐橙色排名背景，视觉继续贴近 Yunzai `miao-plugin` 面板列表。
+- 面板列表底部创建信息改为 `Created By Miao-Plugin & gscore_miao-plugin 当前版本 By MeowAndy`，版本号自动读取插件版本。
+- `喵喵更新日志` 改为使用转发节点形式发送。
+
 ## [0.14.7] - 2026-04-25
 
 ### Changed

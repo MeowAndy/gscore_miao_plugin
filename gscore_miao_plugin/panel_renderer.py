@@ -523,7 +523,11 @@ def _draw_profile_avatar(img: Image.Image, draw: ImageDraw.ImageDraw, char: Dict
         img.alpha_composite(face, (x, y))
     else:
         _text(draw, (x + 25, y + 20), name[:1] or "?", (255, 245, 225), FONT_CARD_TITLE)
-    _draw_rank_sprite(img, char, x - 4, y - 3, size + 8)
+    rank_bg_y = y + size
+    draw.ellipse((x - 2, rank_bg_y - 6, x + size + 2, rank_bg_y + 32), fill=(227, 125, 47))
+    text = "最强" if _char_star(char) >= 5 else "最高分"
+    tb = draw.textbbox((0, 0), text, font=FONT_PROFILE_CONS)
+    _text(draw, (x + (size - (tb[2] - tb[0])) // 2, rank_bg_y - 2), text, (255, 255, 255), FONT_PROFILE_CONS)
     name_text = _fit_text(name, 5)
     cons = _safe(char.get("constellation"), "0")
     ny = y + size + 7
@@ -601,7 +605,8 @@ def _draw_profile_list_image(result: PanelResult, characters: List[Dict[str, Any
     serv = f"当前更新服务：{_source_display_name(result.source)}"
     sb = draw.textbbox((0, 0), serv, font=FONT_PROFILE_LABEL)
     _shadow_text(draw, (width - 48 - (sb[2] - sb[0]), footer_y + 14), serv, (255, 255, 255), FONT_PROFILE_LABEL)
-    credit = "Created By TRSS-Yunzai 3.1.7  &  Miao-Plugin 2.5.16"
+    from .version import PLUGIN_VERSION
+    credit = f"Created By Miao-Plugin & gscore_miao-plugin {PLUGIN_VERSION} By MeowAndy"
     cb = draw.textbbox((0, 0), credit, font=FONT_PROFILE_CREDIT)
     _shadow_text(draw, ((width - (cb[2] - cb[0])) // 2, height - 42), credit, (255, 255, 255), FONT_PROFILE_CREDIT)
     return img

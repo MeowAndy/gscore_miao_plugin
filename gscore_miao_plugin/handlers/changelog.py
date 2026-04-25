@@ -1,5 +1,6 @@
 from gsuid_core.bot import Bot
 from gsuid_core.models import Event
+from gsuid_core.segment import MessageSegment
 from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
@@ -17,10 +18,11 @@ async def send_changelog(bot: Bot, ev: Event):
     limit = MiaoConfig.get_config("UpdateLogLimit").data
     logs = CHANGELOGS[:limit]
 
-    lines = ["【gscore_miao-plugin 更新日志】"]
+    msg_list = []
     for item in logs:
-        lines.append(f"\n{item['version']} ({item['date']})")
+        content = f"{item['version']} ({item['date']})"
         for x in item.get("items", []):
-            lines.append(f"- {x}")
+            content += f"\n• {x}"
+        msg_list.append(content)
 
-    await bot.send("\n".join(lines))
+    await bot.send(MessageSegment.node(msg_list))

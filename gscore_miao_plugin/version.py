@@ -1,6 +1,15 @@
-PLUGIN_VERSION = "0.14.7"
+PLUGIN_VERSION = "0.14.8"
 
 CHANGELOGS = [
+    {
+        "version": "0.14.8",
+        "date": "2026-04-25",
+        "items": [
+            "面板列表角色头像下方补齐橙色排名背景，视觉继续贴近 Yunzai miao-plugin 面板列表",
+            "面板列表底部创建信息改为 Created By Miao-Plugin & gscore_miao-plugin 当前版本 By MeowAndy",
+            "喵喵更新日志改为使用转发节点形式发送",
+        ],
+    },
     {
         "version": "0.14.7",
         "date": "2026-04-25",
