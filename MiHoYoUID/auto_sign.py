@@ -24,12 +24,12 @@ def _empty_stat() -> dict[str, int]:
 
 
 def _sign_time() -> tuple[int, int]:
-    raw = MiaoConfig.get_config("AutoDailySignTime").data or ["8", "0"]
+    raw = MiaoConfig.get_config("AutoDailySignTime").data or ["0", "30"]
     try:
-        hour = int(raw[0]) if len(raw) > 0 else 8
-        minute = int(raw[1]) if len(raw) > 1 else 0
+        hour = int(raw[0]) if len(raw) > 0 else 0
+        minute = int(raw[1]) if len(raw) > 1 else 30
     except Exception:
-        hour, minute = 8, 0
+        hour, minute = 0, 30
     return max(0, min(23, hour)), max(0, min(59, minute))
 
 

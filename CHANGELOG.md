@@ -2,6 +2,11 @@
 
 All notable changes to `MiHoYoUID` are documented in this file.
 
+## [0.15.13] - 2026-04-26
+
+### Changed
+- 自动签到默认执行时间改为每天 00:30，配置缺省或异常时同样回退到 00:30。
+
 ## [0.15.12] - 2026-04-26
 
 ### Added

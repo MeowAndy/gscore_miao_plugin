@@ -108,8 +108,8 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "AutoDailySignTime": GsListStrConfig(
         "每日自动签到时间",
-        "每日自动执行米游社签到的时间，格式为 [小时, 分钟]，例如 [8, 0]",
-        ["8", "0"],
+        "每日自动执行米游社签到的时间，格式为 [小时, 分钟]，默认 [0, 30] 表示 00:30",
+        ["0", "30"],
     ),
     "PrivateSignReport": GsBoolConfig(
         "签到私聊报告",

@@ -265,9 +265,9 @@ async def send_enable_auto_sign(bot: Bot, ev: Event):
     if not str(cfg.get("mys_cookie") or ""):
         return await bot.send("当前未登录，无法开启自动签到。请先私聊发送：喵喵登录 <米游社Cookie>")
     await set_user_cfg(ev.user_id, ev.bot_id, {"auto_daily_sign": True})
-    sign_time = MiaoConfig.get_config("AutoDailySignTime").data or ["8", "0"]
-    hour = str(sign_time[0]).zfill(2) if len(sign_time) > 0 else "08"
-    minute = str(sign_time[1]).zfill(2) if len(sign_time) > 1 else "00"
+    sign_time = MiaoConfig.get_config("AutoDailySignTime").data or ["0", "30"]
+    hour = str(sign_time[0]).zfill(2) if len(sign_time) > 0 else "00"
+    minute = str(sign_time[1]).zfill(2) if len(sign_time) > 1 else "30"
     await bot.send(f"已开启自动签到，将于每天 {hour}:{minute} 自动执行")
 
 
