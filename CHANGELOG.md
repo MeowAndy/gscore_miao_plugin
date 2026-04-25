@@ -2,6 +2,11 @@
 
 All notable changes to `gscore_miao-plugin` are documented in this file.
 
+## [0.15.7] - 2026-04-26
+
+### Changed
+- 删除单角色面板基础信息区命座/星魂标签文字，避免与命座数值和图标区域重叠。
+
 ## [0.15.6] - 2026-04-26
 
 ### Fixed

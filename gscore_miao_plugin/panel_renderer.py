@@ -1376,7 +1376,6 @@ def _draw_basic_panel(img: Image.Image, draw: ImageDraw.ImageDraw, result: Panel
         _text(draw, (cx + 42 - lv_w // 2, cy + 35), lv_text, (255, 245, 220), FONT_TINY)
         _text(draw, (cx + 8, cy + 62), label, (202, 195, 180), FONT_TINY)
 
-    _text(draw, (x + 318, y + 92), "星魂" if is_sr else "命座", (202, 195, 180), FONT_TINY)
     for idx in range(6):
         row = idx // 3
         col = idx % 3
