@@ -2,6 +2,11 @@
 
 All notable changes to `MiHoYoUID` are documented in this file.
 
+## [0.15.14] - 2026-04-26
+
+### Changed
+- 自动/全部签到汇总不再展示跳过原因，仅保留账号统计与失败详情。
+
 ## [0.15.13] - 2026-04-26
 
 ### Changed

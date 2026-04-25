@@ -42,7 +42,6 @@ async def auto_daily_sign_task(sign_all: bool = False) -> str:
     async with _SIGN_LOCK:
         all_cfg = await get_all_user_cfg()
         stats = {"原神": _empty_stat(), "崩铁": _empty_stat()}
-        skip_reasons: list[str] = []
         error_messages: list[str] = []
 
         for key, raw_cfg in all_cfg.items():
@@ -66,13 +65,8 @@ async def auto_daily_sign_task(sign_all: bool = False) -> str:
             if not cookie:
                 for game_name, uids in (("原神", gs_uids), ("崩铁", sr_uids)):
                     stats[game_name]["skipped"] += len(uids)
-                    if uids:
-                        skip_reasons.append(f"{game_name} {user_key}：未登录米游社 Cookie")
-                if not gs_uids and not sr_uids:
-                    skip_reasons.append(f"{user_key}：未登录米游社 Cookie，且没有可签到 UID")
                 continue
             if not gs_uids and not sr_uids:
-                skip_reasons.append(f"{user_key}：没有可签到的原神或崩铁 UID")
                 continue
             try:
                 sections, errors = await run_daily_sign_for_cfg(cfg)
@@ -86,10 +80,6 @@ async def auto_daily_sign_task(sign_all: bool = False) -> str:
                 stats["崩铁"]["failed"] += sr_failed
                 stats["原神"]["skipped"] += max(0, len(gs_uids) - gs_done - gs_failed)
                 stats["崩铁"]["skipped"] += max(0, len(sr_uids) - sr_done - sr_failed)
-                if len(gs_uids) > gs_done + gs_failed:
-                    skip_reasons.append(f"原神 {user_key}：未返回签到结果")
-                if len(sr_uids) > sr_done + sr_failed:
-                    skip_reasons.append(f"崩铁 {user_key}：未返回签到结果")
                 if errors:
                     error_messages.append(f"{user_key}: " + "；".join(errors[:3]))
                 await asyncio.sleep(1)
@@ -110,8 +100,6 @@ async def auto_daily_sign_task(sign_all: bool = False) -> str:
             f"❌ 失败 {stats['崩铁']['failed']} 个",
             f"⏭️ 跳过 {stats['崩铁']['skipped']} 个",
         ]
-        if skip_reasons:
-            summary_lines.append("📝 跳过原因：" + "；".join(skip_reasons[:5]))
         if error_messages:
             summary_lines.append("⚠️ 失败详情：" + "；".join(error_messages[:5]))
         summary = "\n".join(summary_lines)
