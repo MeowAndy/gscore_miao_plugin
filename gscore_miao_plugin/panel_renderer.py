@@ -1141,6 +1141,52 @@ def _fit_text(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: max(limit - 1, 1)] + "…"
 
 
+def _text_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> int:
+    try:
+        box = draw.textbbox((0, 0), text, font=font)
+        return box[2] - box[0]
+    except Exception:
+        return len(str(text)) * 12
+
+
+def _fit_font_text(draw: ImageDraw.ImageDraw, text: str, max_width: int, fonts: List[ImageFont.ImageFont], min_chars: int = 4) -> Tuple[str, ImageFont.ImageFont]:
+    text = str(text or "")
+    for font in fonts:
+        if _text_width(draw, text, font) <= max_width:
+            return text, font
+    font = fonts[-1]
+    ret = text
+    while len(ret) > min_chars and _text_width(draw, ret + "…", font) > max_width:
+        ret = ret[:-1]
+    return (ret + "…" if ret != text else ret), font
+
+
+def _wrap_text_by_width(draw: ImageDraw.ImageDraw, text: str, max_width: int, font: ImageFont.ImageFont, max_lines: int = 2) -> List[str]:
+    text = str(text or "").strip()
+    if not text:
+        return []
+    lines: List[str] = []
+    current = ""
+    for ch in text:
+        test = current + ch
+        if current and _text_width(draw, test, font) > max_width:
+            lines.append(current)
+            current = ch
+            if len(lines) >= max_lines:
+                break
+        else:
+            current = test
+    if len(lines) < max_lines and current:
+        lines.append(current)
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+    if lines and "".join(lines) != text:
+        while lines[-1] and _text_width(draw, lines[-1] + "…", font) > max_width:
+            lines[-1] = lines[-1][:-1]
+        lines[-1] += "…"
+    return lines
+
+
 def _display_name(value: Any, fallback: str) -> str:
     text = str(value or "").strip()
     if not text or text.isdigit():
@@ -1210,12 +1256,20 @@ def _artifact_prop_score_text(prop: Any, weight: Dict[str, float], game: str = "
         return ""
 
 
+def _artifact_prop_parts(prop: Any, weight: Dict[str, float] | None = None, game: str = "gs") -> Tuple[str, str]:
+    if not isinstance(prop, dict):
+        return _prop_name(prop), ""
+    pn = _prop_name(prop)
+    pv = _prop_value(prop)
+    left = f"{pn}+{pv}" if pv else pn
+    score = _artifact_prop_score_text(prop, weight or {}, game) if weight else ""
+    return left, score.strip()
+
+
 def _artifact_prop_line(prop: Any, weight: Dict[str, float] | None = None, game: str = "gs") -> str:
     if isinstance(prop, dict):
-        pn = _prop_name(prop)
-        pv = _prop_value(prop)
-        score = _artifact_prop_score_text(prop, weight or {}, game) if weight else ""
-        return f"{pn}+{pv}{score}" if pv else f"{pn}{score}"
+        left, score = _artifact_prop_parts(prop, weight, game)
+        return f"{left} {score}" if score else left
     return _prop_name(prop)
 
 
@@ -1451,12 +1505,12 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
     names = {"atk": "攻击", "hp": "生命", "def": "防御", "speed": "速度", "cpct": "暴率", "cdmg": "爆伤", "dmg": "增伤", "stance": "击破", "effPct": "命中", "effDef": "抵抗", "recharge": "充能", "heal": "治疗"}
     _text(draw, (45, y + 70), "有效词条：" + " / ".join(names.get(k, k) for k in useful[:8]), (188, 196, 210), FONT_TINY)
     y += 114
-    card_w, card_h = 176, 204
+    card_w, card_h = 176, 238
     for idx in range(max_count):
         col = idx % 3
         row = idx // 3
         x = 25 + col * 187
-        yy = y + row * 216
+        yy = y + row * 250
         rel = reliqs[idx] if idx < len(reliqs) else {}
         if is_sr and rel:
             rel = dict(rel)
@@ -1471,18 +1525,26 @@ def _draw_artifacts(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: D
         else:
             _text(draw, (x + 24, yy + 23), (SR_RELIC_SLOT_ICONS if is_sr else ARTIFACT_SLOT_ICONS)[idx], (255, 247, 230), FONT_SMALL)
         title = _artifact_name(rel, _reliq_label(idx, is_sr))
-        _text(draw, (x + 70, yy + 14), _fit_text(title, 6), (245, 228, 183), FONT_SMALL)
+        title_lines = _wrap_text_by_width(draw, title, 96, FONT_TINY, 2)
+        for t_idx, title_line in enumerate(title_lines[:2]):
+            _text(draw, (x + 68, yy + 12 + t_idx * 18), title_line, (245, 228, 183), FONT_TINY)
         main = _prop_name(rel.get("main_prop") or rel.get("main"))
         main_value = _prop_value(rel.get("main_prop") or rel.get("main"))
-        _text(draw, (x + 14, yy + 66), _fit_text(f"{main} {main_value}".strip(), 11), (210, 210, 210), FONT_TINY)
+        main_line, main_font = _fit_font_text(draw, f"{main}+{main_value}" if main_value else main, 148, [FONT_TINY, _font(16), _font(15)], 5)
+        _text(draw, (x + 14, yy + 66), main_line, (210, 210, 210), main_font)
         score = scores[idx] if idx < len(scores) else (score_reliquary(rel, weight, idx) if rel else 0)
         score_text = f"{score:.1f} {artifact_rank(score)}" if rel else "-"
         _text(draw, (x + 14, yy + 88), f"+{level}  {score_text}", (255, 232, 170), FONT_TINY)
         if rel:
-            sub_lines = [_artifact_prop_line(prop, weight, "sr" if is_sr else "gs") for prop in (rel.get("sub_props") or [])[:4]]
-            for s_idx, line in enumerate(sub_lines):
-                _text(draw, (x + 14, yy + 112 + s_idx * 20), _fit_text(line, 15), (188, 196, 210), FONT_TINY)
-    return y + 444
+            for s_idx, prop in enumerate((rel.get("sub_props") or [])[:4]):
+                left, score_part = _artifact_prop_parts(prop, weight, "sr" if is_sr else "gs")
+                line_y = yy + 116 + s_idx * 27
+                left_text, left_font = _fit_font_text(draw, left, 104 if score_part else 148, [FONT_TINY, _font(16), _font(15)], 5)
+                _text(draw, (x + 14, line_y), left_text, (188, 196, 210), left_font)
+                if score_part:
+                    score_text_fit, score_font = _fit_font_text(draw, score_part, 52, [FONT_TINY, _font(15), _font(14)], 3)
+                    _text(draw, (x + card_w - 14 - _text_width(draw, score_text_fit, score_font), line_y), score_text_fit, (255, 167, 72), score_font)
+    return y + 512
 
 
 def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict[str, Any]) -> int:
@@ -1517,13 +1579,24 @@ def _draw_artifact_detail(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, c
         main = _prop_name(main_prop)
         main_value = _prop_value(main_prop)
         level = _artifact_level(rel.get("level"))
-        _text(draw, (x + 96, y + 16), _fit_text(name, 15), (245, 228, 183), FONT_SMALL)
+        name_text, name_font = _fit_font_text(draw, name, 330, [FONT_SMALL, FONT_TINY, _font(16)], 8)
+        _text(draw, (x + 96, y + 16), name_text, (245, 228, 183), name_font)
         main_line = f"{_reliq_label(idx, is_sr)}  +{level}  主词条：{main}+{main_value}" if main_value else f"{_reliq_label(idx, is_sr)}  +{level}  主词条：{main}"
-        _text(draw, (x + 96, y + 44), main_line, (218, 218, 218), FONT_TINY)
-        subs = []
-        for prop in rel.get("sub_props") or []:
-            subs.append(_artifact_prop_line(prop, weight, "sr" if is_sr else "gs"))
-        _text(draw, (x + 96, y + 72), _fit_text(" / ".join(subs) or "无副词条", 34), (188, 196, 210), FONT_TINY)
+        main_line, main_font = _fit_font_text(draw, main_line, 340, [FONT_TINY, _font(16), _font(15)], 8)
+        _text(draw, (x + 96, y + 44), main_line, (218, 218, 218), main_font)
+        detail_props = list((rel.get("sub_props") or [])[:4])
+        if detail_props:
+            for s_idx, prop in enumerate(detail_props):
+                left, score_part = _artifact_prop_parts(prop, weight, "sr" if is_sr else "gs")
+                px = x + 96 + (s_idx % 2) * 178
+                py = y + 72 + (s_idx // 2) * 19
+                left_text, left_font = _fit_font_text(draw, left, 118 if score_part else 160, [FONT_TINY, _font(15), _font(14)], 5)
+                _text(draw, (px, py), left_text, (188, 196, 210), left_font)
+                if score_part:
+                    score_text_fit, score_font = _fit_font_text(draw, score_part, 48, [FONT_TINY, _font(14)], 3)
+                    _text(draw, (px + 122, py), score_text_fit, (255, 167, 72), score_font)
+        else:
+            _text(draw, (x + 96, y + 72), "无副词条", (188, 196, 210), FONT_TINY)
         _rounded_r(draw, (x + 462, y + 22, x + 532, y + 62), 10, (80, 62, 36), (221, 191, 135), 1)
         _text(draw, (x + 472, y + 30), f"{score:.1f}", (255, 232, 170), FONT_TEXT)
         _text(draw, (x + 468, y + 70), artifact_rank(score), (144, 232, 74), FONT_TINY)
@@ -1568,7 +1641,7 @@ async def render_panel_image(result: PanelResult) -> bytes:
     characters = list(_iter_cards((result.characters or [])[:8], result.game))
     if len(characters) == 1:
         width = 600
-        height = 1760
+        height = 1880
         img = Image.new("RGBA", (width, height), (22, 23, 27, 255))
         draw = ImageDraw.Draw(img)
         bottom = _draw_miao_profile(img, draw, result, characters[0], width, height)
@@ -1629,7 +1702,7 @@ async def render_artifact_image(result: PanelResult, character_query: str = "") 
         raise ValueError("当前数据源没有返回可渲染的角色详情")
     char = characters[0]
     width = 600
-    height = 1520
+    height = 1640
     img = Image.new("RGBA", (width, height), (22, 23, 27, 255))
     draw = ImageDraw.Draw(img)
     _draw_miao_header(img, draw, result, char, width)
