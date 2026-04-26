@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from .config import MiaoConfig
+from .panel_cache import get_latest_panel
 from .panel_models import PanelResult, PanelSourceError
 from .panel_sources import get_source_order, get_source_with_context
 
@@ -119,6 +120,11 @@ async def query_panel(
         source_order = [user_source]
     if not source_order:
         return None, [f"未启用或不支持该面板服务：{user_source or 'auto'}"]
+
+    if (user_source or "auto") == "auto":
+        latest = get_latest_panel(uid, game)
+        if latest:
+            return latest, errors
 
     for source_name in source_order:
         try:

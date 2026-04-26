@@ -87,9 +87,9 @@ def _parse_damage_query(text: str, game: str = "gs") -> Tuple[str, Dict[str, flo
         "tags": [],
     }
     tags: List[str] = []
-    level_match = re.search(r"(?:敌人|怪物|等级|Lv|lv|LV)\s*(\d{2,3})", raw)
+    level_match = re.search(r"(?:(?:敌人|怪物)\s*)?(?:等级|Lv|lv|LV)\s*(\d{2,3})(?=\s|$|级)|(?:敌人|怪物)\s*(\d{2,3})(?=\s|$|级)", raw)
     if level_match:
-        ctx["enemy_level"] = float(level_match.group(1))
+        ctx["enemy_level"] = float(level_match.group(1) or level_match.group(2))
         raw = raw.replace(level_match.group(0), " ")
         tags.append(f"敌人Lv.{int(ctx['enemy_level'])}")
     res_match = re.search(r"(?:抗性|抗)\s*(-?\d+(?:\.\d+)?)%?", raw)

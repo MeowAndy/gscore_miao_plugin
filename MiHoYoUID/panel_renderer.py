@@ -2585,6 +2585,112 @@ async def render_help_image(title: str, subtitle: str, groups: List[Dict[str, An
     return await convert_img(img)
 
 
+async def render_setting_card(title: str, subtitle: str, stats: List[Tuple[str, Any]], commands: List[str], uid_lines: List[str] | None = None, game: str = "gs") -> bytes:
+    is_sr = game == "sr"
+    width = 920
+    cmd_rows = max(1, len(commands))
+    uid_rows = max(0, len(uid_lines or []))
+    height = max(760, 250 + ((len(stats) + 1) // 2) * 104 + uid_rows * 34 + cmd_rows * 42 + 150)
+    img = _gradient_bg(width, height).convert("RGBA")
+    bg = _cover_image(_help_bg_path(), (width, height))
+    if bg:
+        bg.putalpha(80)
+        img.alpha_composite(bg)
+    img.alpha_composite(Image.new("RGBA", (width, height), (8, 14, 28, 138)))
+    draw = ImageDraw.Draw(img)
+    accent = (246, 199, 74) if is_sr else (84, 150, 255)
+    draw.ellipse((width - 340, -180, width + 140, 300), fill=(*accent, 48))
+    _shadow_text(draw, (56, 44), title, (255, 247, 222), FONT_HELP_TITLE)
+    _text(draw, (60, 112), subtitle, (214, 224, 244), FONT_SUBTITLE)
+    tag_box = (width - 196, 54, width - 58, 100)
+    draw.rounded_rectangle(tag_box, radius=17, fill=(*accent, 210), outline=(255, 245, 210, 130), width=1)
+    _center_text(draw, tag_box, "设置面板", (26, 28, 34), _font(18, True, "HYWH-65W.ttf"))
+
+    y = 174
+    card_w = 386
+    for idx, (label, value) in enumerate(stats):
+        x = 58 + (idx % 2) * 420
+        cy = y + (idx // 2) * 104
+        _rounded_r(draw, (x, cy, x + card_w, cy + 78), 18, (24, 37, 58), (75, 92, 126), 1)
+        _text(draw, (x + 22, cy + 14), str(label), (168, 183, 210), FONT_SMALL)
+        val_text, val_font = _fit_font_text(draw, str(value), card_w - 44, [FONT_CARD_TITLE, FONT_TEXT], 4)
+        _text(draw, (x + 22, cy + 40), val_text, (255, 242, 205), val_font)
+    y += ((len(stats) + 1) // 2) * 104 + 12
+
+    if uid_lines:
+        _rounded_r(draw, (58, y, width - 58, y + 56 + uid_rows * 34), 18, (18, 31, 50), (62, 78, 106), 1)
+        _text(draw, (82, y + 16), "UID 历史", (255, 232, 174), FONT_CARD_TITLE)
+        ty = y + 56
+        for line in uid_lines[:8]:
+            _text(draw, (86, ty), str(line), (196, 207, 228), FONT_SMALL)
+            ty += 34
+        y += 72 + uid_rows * 34
+
+    _text(draw, (62, y), "可用命令", (255, 232, 174), FONT_HELP_GROUP)
+    y += 50
+    for cmd in commands:
+        _rounded_r(draw, (58, y, width - 58, y + 32), 12, (25, 35, 55), (70, 84, 116), 1)
+        cmd_text, cmd_font = _fit_font_text(draw, cmd, width - 150, [FONT_TEXT, FONT_SMALL], 8)
+        _text(draw, (80, y + 5), cmd_text, (232, 238, 250), cmd_font)
+        y += 42
+    _text(draw, (60, height - 44), "Created By Miao-Plugin & MiHoYoUID · 输入具体设置命令即可修改", (150, 163, 190), FONT_TINY)
+    return await convert_img(img)
+
+
+async def render_login_success_card(masked_cookie: str, roles: List[Dict[str, Any]], sr_roles: List[Dict[str, Any]], prefix: str = "喵喵") -> bytes:
+    width = 940
+    gs_rows = min(len(roles or []), 8)
+    sr_rows = min(len(sr_roles or []), 8)
+    height = max(720, 330 + (gs_rows + sr_rows) * 58 + 130)
+    img = _gradient_bg(width, height).convert("RGBA")
+    bg = _cover_image(_help_bg_path(), (width, height))
+    if bg:
+        bg.putalpha(70)
+        img.alpha_composite(bg)
+    img.alpha_composite(Image.new("RGBA", (width, height), (8, 14, 28, 145)))
+    draw = ImageDraw.Draw(img)
+    accent = (90, 214, 142)
+    draw.ellipse((width - 360, -190, width + 120, 300), fill=(90, 214, 142, 52))
+    _shadow_text(draw, (58, 46), "喵喵登录成功", (236, 255, 242), FONT_HELP_TITLE)
+    _text(draw, (62, 116), "米游社 Cookie 已保存，可用于面板刷新、签到与角色数据查询", (214, 224, 244), FONT_SUBTITLE)
+    tag_box = (width - 190, 56, width - 58, 102)
+    draw.rounded_rectangle(tag_box, radius=17, fill=(*accent, 220), outline=(255, 245, 210, 130), width=1)
+    _center_text(draw, tag_box, "已登录", (18, 31, 26), _font(18, True, "HYWH-65W.ttf"))
+
+    y = 176
+    _rounded_r(draw, (58, y, width - 58, y + 88), 20, (20, 35, 52), (78, 110, 96), 1)
+    _text(draw, (86, y + 18), "Cookie 状态", (166, 207, 184), FONT_SMALL)
+    cookie_text, cookie_font = _fit_font_text(draw, masked_cookie, width - 170, [FONT_CARD_TITLE, FONT_TEXT], 6)
+    _text(draw, (86, y + 46), cookie_text, (236, 255, 242), cookie_font)
+    y += 118
+
+    def draw_roles(section: str, items: List[Dict[str, Any]], cy: int, color: Color) -> int:
+        count = min(len(items or []), 8)
+        box_h = 62 + max(count, 1) * 54
+        _rounded_r(draw, (58, cy, width - 58, cy + box_h), 20, (18, 31, 50), (62, 78, 106), 1)
+        _text(draw, (86, cy + 18), section, color, FONT_CARD_TITLE)
+        ty = cy + 62
+        if not items:
+            _text(draw, (88, ty), "未发现绑定角色", (170, 182, 207), FONT_SMALL)
+            return cy + box_h + 28
+        for idx, role in enumerate(items[:8], start=1):
+            uid = role.get("game_uid") or role.get("uid") or "-"
+            name = role.get("nickname") or role.get("name") or "旅行者"
+            region = role.get("region_name") or role.get("region") or ""
+            text = f"{idx}. {name} · UID {uid} · {region}"
+            text, font = _fit_font_text(draw, text, width - 170, [FONT_TEXT, FONT_SMALL], 8)
+            _text(draw, (92, ty), text, (226, 234, 248), font)
+            ty += 54
+        return cy + box_h + 28
+
+    y = draw_roles("原神角色", roles or [], y, (130, 189, 255))
+    y = draw_roles("崩铁角色", sr_roles or [], y, (255, 222, 126))
+    _rounded_r(draw, (58, y, width - 58, y + 72), 18, (24, 37, 58), (75, 92, 126), 1)
+    _text(draw, (86, y + 16), f"后续可用：{prefix}签到 / {prefix}查看登录 / {prefix}删除登录", (255, 242, 205), FONT_TEXT)
+    _text(draw, (60, height - 44), "Created By Miao-Plugin & MiHoYoUID · Cookie 仅本地保存，请勿公开分享", (150, 163, 190), FONT_TINY)
+    return await convert_img(img)
+
+
 async def render_calendar_image(cal_data: Dict[str, Any]) -> bytes:
     items = list(cal_data.get("items") or [])
     game = str(cal_data.get("game") or "sr")

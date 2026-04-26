@@ -6,6 +6,7 @@ from gsuid_core.sv import SV
 
 from ..auth import add_history, can_use_plugin, get_recent_history_lines
 from ..config import MiaoConfig
+from ..panel_renderer import render_setting_card
 from ..settings import build_default_user_cfg, merge_user_cfg
 from ..store import (bind_uid, get_user_cfg, reset_user_cfg, set_user_cfg,
                      unbind_uid)
@@ -56,6 +57,41 @@ def _uid_list_text(user_cfg: dict, game: str = "gs") -> str:
     return "\n".join(f"{idx}. {uid}{'（当前）' if uid == current else ''}" for idx, uid in enumerate(values, start=1))
 
 
+def _uid_list_lines(user_cfg: dict, game: str = "gs") -> list[str]:
+    text = _uid_list_text(user_cfg, game)
+    return text.splitlines() if text else []
+
+
+def _uid_values(user_cfg: dict, game: str = "gs") -> list[str]:
+    key = "sr_uid_list" if game == "sr" else "uid_list"
+    cur_key = "sr_uid" if game == "sr" else "uid"
+    current = str(user_cfg.get(cur_key) or "").strip()
+    values = [str(x).strip() for x in user_cfg.get(key, []) if str(x).strip()]
+    if current and current not in values:
+        values.insert(0, current)
+    return list(dict.fromkeys(values))
+
+
+async def _switch_uid(bot: Bot, ev: Event, value: str, game: str = "gs"):
+    is_sr = game == "sr"
+    user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
+    values = _uid_values(user_cfg, game)
+    title = "崩铁" if is_sr else "原神"
+    prefix = _cmd_prefix()
+    if not value:
+        if not values:
+            return await bot.send(f"当前没有可切换的{title} UID，请先绑定：{prefix}{title}设置uid <UID>")
+        if len(values) == 1:
+            return await bot.send(f"当前只有一个{title} UID：{values[0]}（当前），无需切换。")
+        return await bot.send(f"【{title} UID 列表】\n{_uid_list_text(user_cfg, game)}\n\n请使用：{prefix}{title}设置uid 切换 <UID>")
+    if not value.isdigit() or len(value) not in {9, 10}:
+        return await bot.send(f"请填写正确 UID，例如：{prefix}{title}设置uid 切换 {values[0] if values else '100000001'}")
+    await bind_uid(ev.user_id, ev.bot_id, value, game=game)
+    await add_history(ev, f"{title}UID切换", value)
+    note = "" if value in values else "（已新增到历史 UID）"
+    return await bot.send(f"已切换{title} UID：{value}{note}")
+
+
 @sv_admin.on_regex(r"^#?原神设置\s*(?P<key>[^\s]+)?\s*(?P<value>.*)$", block=True)
 async def miao_setting(bot: Bot, ev: Event):
     if not MiaoConfig.get_config("EnableMiaoSetting").data:
@@ -76,25 +112,20 @@ async def miao_setting(bot: Bot, ev: Event):
         team_calc = user_cfg.get("team_calc", False)
         show_star = user_cfg.get("show_star", False)
         comma_group = user_cfg.get("comma_group", 3)
-        return await bot.send(
-            "【喵喵原神设置】\n"
-            f"绑定UID: {uid}\n"
-            f"面板服务: {panel_server}\n"
-            f"面板图: {'开启' if custom_splash else '关闭'}\n"
-            f"组队伤害: {'开启' if team_calc else '关闭'}\n"
-            f"星级显示: {'开启' if show_star else '关闭'}\n"
-            f"数字分组: {comma_group}\n\n"
-            "可用：\n"
-            f"{prefix}原神设置面板服务 <{_schema_desc()}>\n"
-            f"{prefix}原神设置uid <UID>\n"
-            f"{prefix}原神设置面板图 <开启|关闭>\n"
-            f"{prefix}原神设置组队 <开启|关闭>\n"
-            f"{prefix}原神设置星级 <开启|关闭>\n"
-            f"{prefix}原神设置逗号 <2-8>\n"
-            f"{prefix}原神设置历史\n"
-            f"{prefix}原神设置导出\n"
-            f"{prefix}原神设置重置"
-        )
+        stats = [("绑定 UID", uid), ("面板服务", panel_server), ("面板图", "开启" if custom_splash else "关闭"), ("组队伤害", "开启" if team_calc else "关闭"), ("星级显示", "开启" if show_star else "关闭"), ("数字分组", comma_group)]
+        commands = [
+            f"{prefix}原神设置面板服务 <{_schema_desc()}>",
+            f"{prefix}原神设置uid <UID|列表|切换 UID|解绑>",
+            f"{prefix}原神设置面板图 <开启|关闭>",
+            f"{prefix}原神设置组队 <开启|关闭>",
+            f"{prefix}原神设置星级 <开启|关闭>",
+            f"{prefix}原神设置逗号 <2-8>",
+            f"{prefix}原神设置历史 / 导出 / 重置",
+        ]
+        try:
+            return await bot.send(await render_setting_card("喵喵原神设置", "原神面板、伤害与显示偏好", stats, commands, _uid_list_lines(user_cfg), "gs"))
+        except Exception:
+            return await bot.send("【喵喵原神设置】\n" + "\n".join(f"{k}: {v}" for k, v in stats))
 
     if key == "历史":
         lines = await get_recent_history_lines(ev)
@@ -132,6 +163,7 @@ async def miao_setting(bot: Bot, ev: Event):
             return await bot.send("【原神 UID 列表】\n" + _uid_list_text(user_cfg))
         if value.startswith(("切换", "选择", "使用")):
             value = value.replace("切换", "", 1).replace("选择", "", 1).replace("使用", "", 1).strip()
+            return await _switch_uid(bot, ev, value)
         if value in {"", "解绑", "删除", "unset", "clear"}:
             await unbind_uid(ev.user_id, ev.bot_id)
             await add_history(ev, "UID解绑", "ok")
@@ -194,14 +226,17 @@ async def miao_sr_setting(bot: Bot, ev: Event):
     prefix = _cmd_prefix()
     if not key:
         user_cfg = merge_user_cfg(await get_user_cfg(ev.user_id, ev.bot_id))
-        return await bot.send(
-            "【喵喵崩铁设置】\n"
-            f"绑定UID: {user_cfg.get('sr_uid') or '未绑定'}\n"
-            f"面板服务: {user_cfg.get('panel_server', 'auto')}\n\n"
-            "可用：\n"
-            f"{prefix}崩铁设置uid <UID|列表|切换 UID>\n"
-            f"{prefix}崩铁设置面板服务 <auto|miao|mihomo|avocado|enkahsr>"
-        )
+        stats = [("绑定 UID", user_cfg.get("sr_uid") or "未绑定"), ("面板服务", user_cfg.get("panel_server", "auto")), ("米游社登录", "已保存" if user_cfg.get("mys_cookie") else "未登录"), ("UID 历史", len(_uid_values(user_cfg, "sr")))]
+        commands = [
+            f"{prefix}崩铁设置uid <UID|列表|切换 UID|解绑>",
+            f"{prefix}崩铁设置面板服务 <auto|miao|mys|mihomo|avocado|enkahsr>",
+            f"{prefix}崩铁mys刷新面板",
+            f"{prefix}查看登录 / {prefix}签到",
+        ]
+        try:
+            return await bot.send(await render_setting_card("喵喵崩铁设置", "星穹铁道面板与米游社数据设置", stats, commands, _uid_list_lines(user_cfg, "sr"), "sr"))
+        except Exception:
+            return await bot.send("【喵喵崩铁设置】\n" + "\n".join(f"{k}: {v}" for k, v in stats))
 
     if key == "面板服务":
         allowed = {"auto", "miao", "mihomo", "avocado", "enkahsr", "mys"}
@@ -217,6 +252,7 @@ async def miao_sr_setting(bot: Bot, ev: Event):
             return await bot.send("【崩铁 UID 列表】\n" + _uid_list_text(user_cfg, "sr"))
         if value.startswith(("切换", "选择", "使用")):
             value = value.replace("切换", "", 1).replace("选择", "", 1).replace("使用", "", 1).strip()
+            return await _switch_uid(bot, ev, value, "sr")
         if value in {"", "解绑", "删除", "unset", "clear"}:
             await unbind_uid(ev.user_id, ev.bot_id, game="sr")
             await add_history(ev, "崩铁UID解绑", "ok")

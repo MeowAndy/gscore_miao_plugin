@@ -10,7 +10,7 @@ from ..artifact_service import render_artifact_text
 from ..auth import can_use_plugin
 from ..config import MiaoConfig
 from ..damage_service import render_damage_text
-from ..panel_cache import clear_cached_panel
+from ..panel_cache import clear_cached_panel, set_latest_panel
 from ..panel_renderer import (render_artifact_image,
                               render_artifact_list_image,
                               render_char_wiki_image, render_char_wiki_images,
@@ -86,6 +86,11 @@ def _damage_query_name(name: str, extra: str = "") -> str:
     return re.sub(r"\s+", " ", f"{name or ''} {extra or ''}").strip()
 
 
+def _remember_latest_panel(result) -> None:
+    if result:
+        set_latest_panel(result.uid, result, result.game)
+
+
 async def _send_artifact_list(bot: Bot, ev: Event, uid: str) -> None:
     if not MiaoConfig.get_config("EnableArtifactScore").data:
         return
@@ -142,7 +147,7 @@ async def send_char_wiki(bot: Bot, ev: Event):
 
 
 @sv_feature.on_regex(
-    r"^原神(?!(?:(?:米游社|mys)(?:全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新)|更新面板|刷新面板|全部面板更新|重载面板|删除面板|解绑UID|解绑uid|角色面板图|面板图|面板列表|面板角色列表|角色列表|面板|角色面板|角色卡片|圣遗物列表|遗物列表|圣遗物评分|遗物评分|伤害计算|伤害估算)(?:\s|$))(?P<name>.+?)\s*(?P<mode>面板|面版|详情|详细|圣遗物|遗器|伤害)\s*(?P<extra>.*?)(?P<uid>\d{9,10})?$",
+    r"^原神(?!(?:(?:米游社|mys)(?:全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新|刷新面板|面板刷新)|更新面板|刷新面板|面板刷新|全部面板更新|重载面板|删除面板|解绑UID|解绑uid|角色面板图|面板图|面板列表|面板角色列表|角色列表|面板|角色面板|角色卡片|圣遗物列表|遗物列表|圣遗物评分|遗物评分|伤害计算|伤害估算)(?:\s|$))(?P<name>.+?)\s*(?P<mode>面板|面版|详情|详细|圣遗物|遗器|伤害)\s*(?P<extra>.*?)(?P<uid>\d{9,10})?$",
     block=True,
 )
 async def send_miao_style_profile(bot: Bot, ev: Event):
@@ -332,7 +337,7 @@ async def send_sr_group_rank_first(bot: Bot, ev: Event):
 
 
 @sv_feature.on_regex(
-    r"^崩铁(?!(?:(?:米游社|mys)(?:全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新)|更新面板|刷新面板|全部面板更新|重载面板|删除面板|解绑UID|解绑uid|面板列表|面板角色列表|角色列表|面板角色|角色面板|面板|遗器列表|圣遗物列表|(?:面板|喵喵)?练度统计)(?:\s|$))(?!(?:.*(?:最强|最高分|第一|最高|最牛|最多|排名|排行|排行榜|排行版|榜))$)(?P<name>.+?)\s*(?P<mode>面板|面版|详情|详细|遗器|圣遗物|光锥|伤害)?\s*(?P<extra>.*?)(?P<uid>\d{9,10})?$",
+    r"^崩铁(?!(?:(?:米游社|mys)(?:全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新|刷新面板|面板刷新)|更新面板|刷新面板|面板刷新|全部面板更新|重载面板|删除面板|解绑UID|解绑uid|面板列表|面板角色列表|角色列表|面板角色|角色面板|面板|遗器列表|圣遗物列表|(?:面板|喵喵)?练度统计)(?:\s|$))(?!(?:.*(?:最强|最高分|第一|最高|最牛|最多|排名|排行|排行榜|排行版|榜))$)(?P<name>.+?)\s*(?P<mode>面板|面版|详情|详细|遗器|圣遗物|光锥|伤害)?\s*(?P<extra>.*?)(?P<uid>\d{9,10})?$",
     block=True,
 )
 async def send_sr_miao_style_profile(bot: Bot, ev: Event):
@@ -512,6 +517,7 @@ async def send_panel_update(bot: Bot, ev: Event):
     cleared = clear_cached_panel(uid)
     result = await _query_user_panel(bot, ev, uid)
     if result:
+        _remember_latest_panel(result)
         try:
             await bot.send(await render_panel_list_image(result, updated=True))
         except Exception as e:
@@ -530,13 +536,14 @@ async def send_sr_panel_update(bot: Bot, ev: Event):
     cleared = clear_cached_panel(uid)
     result = await _query_user_panel(bot, ev, uid, game="sr")
     if result:
+        _remember_latest_panel(result)
         try:
             await bot.send(await render_panel_list_image(result, updated=True))
         except Exception as e:
             await bot.send(f"崩铁面板已刷新：{uid}\n本地缓存清理：{cleared} 条\n数据源：{result.source}\n角色数：{len(result.characters or result.avatars or [])}\n列表图渲染失败：{e}")
 
 
-@sv_feature.on_regex(r"^原神(米游社|mys)(全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新)\s*(?P<uid>\d{9,10})?$", block=True)
+@sv_feature.on_regex(r"^原神(米游社|mys)(全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新|刷新面板|面板刷新)\s*(?P<uid>\d{9,10})?$", block=True)
 async def send_mys_panel_update(bot: Bot, ev: Event):
     if not MiaoConfig.get_config("EnablePanelQuery").data:
         return
@@ -548,13 +555,14 @@ async def send_mys_panel_update(bot: Bot, ev: Event):
     cleared = clear_cached_panel(uid)
     result = await _query_user_panel(bot, ev, uid, source_override="mys", allow_fallback=False)
     if result:
+        _remember_latest_panel(result)
         try:
             await bot.send(await render_panel_list_image(result, updated=True))
         except Exception as e:
             await bot.send(f"米游社面板已刷新：{uid}\n本地缓存清理：{cleared} 条\n角色数：{len(result.characters or result.avatars or [])}\n列表图渲染失败：{e}")
 
 
-@sv_feature.on_regex(r"^崩铁(米游社|mys)(全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新)\s*(?P<uid>\d{9,10})?$", block=True)
+@sv_feature.on_regex(r"^崩铁(米游社|mys)(全部面板更新|更新全部面板|获取游戏角色详情|更新面板|面板更新|刷新面板|面板刷新)\s*(?P<uid>\d{9,10})?$", block=True)
 async def send_sr_mys_panel_update(bot: Bot, ev: Event):
     if not MiaoConfig.get_config("EnablePanelQuery").data:
         return
@@ -566,6 +574,7 @@ async def send_sr_mys_panel_update(bot: Bot, ev: Event):
     cleared = clear_cached_panel(uid)
     result = await _query_user_panel(bot, ev, uid, source_override="mys", allow_fallback=False, game="sr")
     if result:
+        _remember_latest_panel(result)
         try:
             await bot.send(await render_panel_list_image(result, updated=True))
         except Exception as e:

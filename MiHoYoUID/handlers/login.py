@@ -12,6 +12,7 @@ from ..mys_service import (daily_sign, daily_sign_starrail, fetch_sign_info,
                            fetch_starrail_roles, fetch_starrail_sign_info,
                            normalize_cookie, qrcode_login_cookie,
                            validate_cookie)
+from ..panel_renderer import render_login_success_card
 from ..settings import merge_user_cfg
 from ..store import (bind_mys_cookie, bind_uid, get_user_cfg,
                      set_group_bot_self_id, set_user_cfg, unbind_mys_cookie)
@@ -171,7 +172,10 @@ async def send_login(bot: Bot, ev: Event):
     for idx, role in enumerate(sr_roles[:8], start=1):
         lines.append(f"崩铁{idx}. {_role_name(role)} UID {_role_uid(role)} {_role_region(role)}")
     lines.append("之后可使用：喵喵签到 / 喵喵查看登录 / 喵喵删除登录")
-    await bot.send("\n".join(lines))
+    try:
+        await bot.send(await render_login_success_card(_mask_cookie(cookie), roles, sr_roles, str(MiaoConfig.get_config("CommandPrefix").data or "喵喵")))
+    except Exception:
+        await bot.send("\n".join(lines))
 
 
 @sv_login.on_fullmatch(("查看登录", "我的登录", "登录信息"), block=True)

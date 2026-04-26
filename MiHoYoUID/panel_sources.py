@@ -74,7 +74,7 @@ def _avatars_from(data: Dict[str, Any]) -> List[Dict[str, Any]]:
             ret[key] = item
         return list(ret.values())
 
-    avatars = _dig(data, "avatars", "characters", "avatarInfoList", "list", "data.avatars", "data.characters", "data.avatarInfoList", "data.list")
+    avatars = _dig(data, "avatars", "characters", "avatarInfoList", "avatar_list", "list", "data.avatars", "data.characters", "data.avatarInfoList", "data.avatar_list", "data.list")
     if isinstance(avatars, list):
         return _dedupe([x for x in avatars if isinstance(x, dict)])
     if isinstance(avatars, dict):
@@ -336,7 +336,7 @@ def _sr_weapon_attrs(weapon: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _sr_weapon_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
-    weapon = avatar.get("light_cone") or avatar.get("lightCone") or avatar.get("equipment") or avatar.get("weapon") or {}
+    weapon = avatar.get("light_cone") or avatar.get("lightCone") or avatar.get("equipment") or avatar.get("equip") or avatar.get("weapon") or {}
     if not isinstance(weapon, dict):
         return {}
     item_id = weapon.get("item_id") or weapon.get("itemId") or weapon.get("id") or weapon.get("tid")
@@ -356,12 +356,13 @@ def _sr_weapon_from_avatar(avatar: Dict[str, Any]) -> Dict[str, Any]:
 
 def _sr_reliquaries_from_avatar(avatar: Dict[str, Any]) -> List[Dict[str, Any]]:
     raw = avatar.get("reliquaries") or avatar.get("artifacts") or avatar.get("artis") or avatar.get("relicList") or avatar.get("relics") or []
-    if isinstance(raw, dict):
-        iterable = raw.values()
-    elif isinstance(raw, list):
-        iterable = raw
-    else:
-        iterable = []
+    ornament_raw = avatar.get("ornaments") or []
+    iterable: List[Any] = []
+    for source in (raw, ornament_raw):
+        if isinstance(source, dict):
+            iterable.extend(source.values())
+        elif isinstance(source, list):
+            iterable.extend(source)
     reliqs: List[Dict[str, Any]] = []
     for item in iterable:
         if not isinstance(item, dict):
@@ -768,6 +769,10 @@ def _server_id(uid: str) -> str:
     return "cn_qd01" if str(uid).startswith("5") else "cn_gf01"
 
 
+def _starrail_server_id(uid: str) -> str:
+    return "prod_qd_cn" if str(uid).startswith("5") else "prod_gf_cn"
+
+
 MYS_API_BASE_URL = "https://api-takumi-record.mihoyo.com"
 
 
@@ -1120,6 +1125,37 @@ class MysPanelSource(BasePanelSource):
             game="gs",
         )
 
+    async def _fetch_starrail_avatar_info(self, uid: str, cookie: str) -> PanelResult:
+        base_url = _strip_url(MiaoConfig.get_config("MysApiBaseUrl").data) or MYS_API_BASE_URL
+        params = {"role_id": uid, "server": _starrail_server_id(uid)}
+        q = urlencode(params)
+        url = urljoin(f"{base_url}/", "game_record/app/hkrpg/api/avatar/info")
+        try:
+            async with httpx.AsyncClient(timeout=_timeout()) as client:
+                raw = await self._get_json_with_retry(client, url, params, _mys_headers(cookie, q), q)
+        except httpx.HTTPStatusError as e:
+            raise PanelSourceError(self.source_name, _http_error_message(self.source_name, e)) from e
+        except Exception as e:
+            raise PanelSourceError(self.source_name, f"星铁米游社请求失败：{e}") from e
+
+        data = raw.get("data") if isinstance(raw.get("data"), dict) else {}
+        avatars = data.get("avatar_list") or data.get("avatars") or []
+        if not isinstance(avatars, list):
+            avatars = []
+        result = PanelResult(
+            source=self.source_name,
+            uid=uid,
+            raw=raw,
+            nickname=str((data.get("role") or {}).get("nickname") or ""),
+            level=(data.get("role") or {}).get("level"),
+            signature="",
+            avatars=avatars,
+            characters=_characters_from_avatars(avatars, "sr"),
+            game="sr",
+        )
+        set_cached_panel(_cache_key(self.source_name, "sr"), uid, result)
+        return result
+
     async def _get_json_with_retry(
         self,
         client: httpx.AsyncClient,
@@ -1156,9 +1192,6 @@ class MysPanelSource(BasePanelSource):
         return raw
 
     async def fetch(self, uid: str) -> PanelResult:
-        if self.game == "sr":
-            raise PanelSourceError(self.source_name, "星铁米游社面板源暂未适配，请使用 auto/miao/mihomo/avocado/enkahsr")
-
         cached = get_cached_panel(_cache_key(self.source_name, self.game), uid)
         if cached:
             return cached
@@ -1168,9 +1201,12 @@ class MysPanelSource(BasePanelSource):
         if not cookie:
             raise PanelSourceError(self.source_name, "米游社 Cookie 未配置")
 
+        if self.game == "sr":
+            return await self._fetch_starrail_avatar_info(uid, cookie)
+
         try:
             result = await self._fetch_with_gscore_api(uid, cookie)
-            set_cached_panel(self.source_name, uid, result)
+            set_cached_panel(_cache_key(self.source_name, self.game), uid, result)
             return result
         except PanelSourceError:
             raise
