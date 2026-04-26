@@ -28,8 +28,14 @@ STAT_COMMANDS = (
     "幽境危战数据",
 )
 
+SR_OWNERSHIP_COMMANDS = (
+    "崩铁角色持有率",
+    "星铁角色持有率",
+)
+
 STAT_PREFIXES = ("喵喵", "miao", "MM")
 PREFIXED_STAT_COMMANDS = tuple(f"{prefix}{cmd}" for prefix in STAT_PREFIXES for cmd in STAT_COMMANDS)
+PREFIXED_SR_OWNERSHIP_COMMANDS = tuple(f"{prefix}{cmd}" for prefix in STAT_PREFIXES for cmd in SR_OWNERSHIP_COMMANDS)
 STAT_COMMAND_PATTERN = "|".join(STAT_COMMANDS + PREFIXED_STAT_COMMANDS)
 
 
@@ -48,6 +54,13 @@ def _kind_title(text: str) -> tuple[str, str]:
 @sv_stat.on_fullmatch(STAT_COMMANDS + PREFIXED_STAT_COMMANDS, block=True)
 async def send_public_stat_fullmatch(bot: Bot, ev: Event):
     await _send_public_stat(bot, ev)
+
+
+@sv_stat.on_fullmatch(SR_OWNERSHIP_COMMANDS + PREFIXED_SR_OWNERSHIP_COMMANDS, block=True)
+async def send_sr_ownership_unavailable(bot: Bot, ev: Event):
+    if not can_use_plugin(ev):
+        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
+    return await bot.send("崩铁目前没有做角色持有量排行，暂不支持该指令。")
 
 
 @sv_stat.on_regex(rf"^(?P<cmd>{STAT_COMMAND_PATTERN})$", block=True)
