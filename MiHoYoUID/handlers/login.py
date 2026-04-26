@@ -77,6 +77,18 @@ def _mask_cookie(cookie: str) -> str:
     return f"{cookie[:8]}...{cookie[-8:]}"
 
 
+def _sign_error_message(e: Exception) -> str:
+    message = str(e).strip()
+    if message:
+        return message
+    exc_name = e.__class__.__name__
+    if "Timeout" in exc_name:
+        return "请求米游社签到接口超时，请稍后重试"
+    if "Connect" in exc_name or "Network" in exc_name:
+        return "连接米游社签到接口失败，请稍后重试"
+    return f"{exc_name}，米游社接口未返回具体原因"
+
+
 async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[list[str], list[str]]:
     cookie = str(cfg.get("mys_cookie") or "")
     if not cookie:
@@ -119,7 +131,8 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
                 f"🕒 日期：{today}"
             )
         except Exception as e:
-            errors.append(f"原神 {gs_uid}：{e}")
+            logger.exception(f"[喵喵签到] 原神 {gs_uid} 签到失败")
+            errors.append(f"原神 {gs_uid}：{_sign_error_message(e)}")
 
     for sr_uid in sr_uids:
         try:
@@ -138,7 +151,8 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
                 f"🕒 日期：{today}"
             )
         except Exception as e:
-            errors.append(f"崩铁 {sr_uid}：{e}")
+            logger.exception(f"[喵喵签到] 崩铁 {sr_uid} 签到失败")
+            errors.append(f"崩铁 {sr_uid}：{_sign_error_message(e)}")
     return sections, errors
 
 
@@ -267,7 +281,7 @@ async def send_daily_sign(bot: Bot, ev: Event):
             msg += "\n\n⚠️ 以下账号签到未完成：\n" + "\n".join(errors)
         return await bot.send(msg)
     if errors:
-        return await bot.send("签到失败：" + "；".join(errors))
+        return await bot.send("签到失败：\n" + "\n".join(errors))
     await bot.send("没有找到可签到的原神或崩铁 UID，请重新登录或使用：喵喵签到 <UID>")
 
 
