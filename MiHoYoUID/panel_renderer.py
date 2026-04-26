@@ -690,9 +690,7 @@ def _draw_avatar_rarity_base(draw: ImageDraw.ImageDraw, x: int, y: int, size: in
     pad = 6
     fill, outline, inner_outline = _rarity_base_color(rarity)
     box = (x - pad, y - pad, x + size + pad, y + size + pad)
-    draw.rounded_rectangle(box, radius=20, fill=fill, outline=outline, width=3)
-    draw.rounded_rectangle((x - pad, y + size // 2, x + size + pad, y + size + pad), radius=18, fill=inner_outline)
-    draw.ellipse(box, outline=outline, width=2)
+    draw.ellipse(box, fill=fill, outline=outline, width=3)
     inner = (x - 2, y - 2, x + size + 2, y + size + 2)
     draw.ellipse(inner, outline=inner_outline, width=2)
 
