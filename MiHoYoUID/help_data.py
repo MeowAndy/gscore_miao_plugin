@@ -130,7 +130,6 @@ STAR_RAIL_HELP_GROUPS: List[HelpGroup] = [
             {"cmd": "{prefix}崩铁黄泉行迹 / {prefix}崩铁黄泉技能", "desc": "查看角色行迹与技能资料"},
             {"cmd": "{prefix}崩铁黄泉星魂", "desc": "查看角色星魂资料"},
             {"cmd": "{prefix}崩铁黄泉资料 / {prefix}崩铁黄泉图鉴", "desc": "角色资料图鉴；原版 miao-plugin 暂不展示星铁角色图鉴页"},
-            {"cmd": "{prefix}崩铁黄泉图片 / {prefix}崩铁黄泉照片", "desc": "查看角色图片资源"},
             {"cmd": "{prefix}崩铁黄泉养成 / {prefix}崩铁黄泉材料", "desc": "查看角色养成材料（规划）"},
             {"cmd": "{prefix}崩铁光锥图鉴", "desc": "星铁光锥资料与别名检索（规划）"},
         ],

@@ -68,7 +68,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "EnablePanelQuery": GsBoolConfig(
         "开启面板查询",
-        "关闭后将不响应 面板/角色面板/角色卡片 指令",
+        "关闭后将不响应 面板/角色面板 指令",
         True,
     ),
     "EnableAliasQuery": GsBoolConfig(

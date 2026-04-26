@@ -1943,8 +1943,6 @@ async def render_panel_list_image(result: PanelResult, updated: bool = False) ->
     characters = list(_iter_cards(result.characters or result.avatars or [], result.game))[:32]
     img = _draw_profile_list_image(result, characters, updated)
     return await convert_img(img)
-
-
 async def render_panel_image(result: PanelResult) -> bytes:
     characters = list(_iter_cards((result.characters or [])[:8], result.game))
     if len(characters) == 1:
@@ -3105,39 +3103,4 @@ async def render_material_image(data: Dict[str, Any]) -> bytes:
         _text(draw, (94, y + 18), f"{row.get('material')} · {row.get('count', 0)} 位角色", (255, 239, 198), FONT_HELP_GROUP)
         _text(draw, (96, y + 56), _fit_text(chars or "暂无", 62), (220, 228, 244), FONT_HELP_DESC)
         y += 112
-    return await convert_img(img)
-
-
-async def render_image_gallery_card(title: str, items: List[str], subtitle: str = "自定义图库") -> bytes:
-    height = max(560, 210 + max(len(items), 1) * 40 + 78)
-    img, draw = _miao_card_base(title, subtitle, height=height)
-    y = 196
-    _rounded_r(draw, (64, y - 18, 1016, height - 74), 24, (24, 32, 52, 222), (80, 98, 138), 1)
-    if not items:
-        _text(draw, (96, y + 24), "当前没有自定义图片。", (232, 238, 248), FONT_TEXT)
-    for idx, item in enumerate(items[:20], start=1):
-        _text(draw, (96, y), f"{idx}. {_fit_text(item, 64)}", (224, 232, 246), FONT_TEXT)
-        y += 40
-    return await convert_img(img)
-
-
-async def render_character_photo_card(data: Dict[str, Any]) -> bytes:
-    if not data.get("ok"):
-        return await render_status_card("喵喵角色卡片", [str(data.get("message") or "未找到角色图片"), f"角色：{data.get('name') or '-'}"], "角色写真")
-    path = Path(str(data.get("path") or ""))
-    name = str(data.get("name") or "角色")
-    cover = _cover_image(path, (1080, 1500))
-    if not cover:
-        return await render_status_card("喵喵角色卡片", ["图片文件无法打开", str(path)], "角色写真")
-    img = Image.new("RGBA", (1080, 1500), (12, 18, 30, 255))
-    img.alpha_composite(cover)
-    overlay = Image.new("RGBA", (1080, 1500), (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    od.rectangle((0, 0, 1080, 210), fill=(0, 0, 0, 118))
-    od.rectangle((0, 1260, 1080, 1500), fill=(0, 0, 0, 142))
-    img.alpha_composite(overlay)
-    draw = ImageDraw.Draw(img)
-    _shadow_text(draw, (64, 52), name, (255, 247, 222), FONT_HELP_TITLE)
-    _shadow_text(draw, (68, 118), f"喵喵角色卡片 · 共 {data.get('count', 1)} 张可选", (220, 228, 244), FONT_SUBTITLE)
-    _text(draw, (64, 1438), "发送“喵喵原图”可获取上一张原始图片路径；可用“上传角色照片 URL”添加自定义图。", (220, 228, 244), FONT_SMALL)
     return await convert_img(img)

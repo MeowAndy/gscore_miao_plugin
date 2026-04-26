@@ -123,7 +123,7 @@ async def send_version(bot: Bot, ev: Event):
     await bot.send(f"MiHoYoUID v{PLUGIN_VERSION}")
 
 
-@sv_help.on_regex(r"^原神(面板|角色面板|角色卡片)\s*(?P<uid>\d{9,10})?$", block=True)
+@sv_help.on_regex(r"^原神(面板|角色面板)\s*(?P<uid>\d{9,10})?$", block=True)
 async def send_panel(bot: Bot, ev: Event):
     if not MiaoConfig.get_config("EnablePanelQuery").data:
         return
