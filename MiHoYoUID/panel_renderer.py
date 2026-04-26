@@ -2963,6 +2963,40 @@ def _split_pages(items: List[Any], page_size: int) -> List[List[Any]]:
     return [items[i:i + page_size] for i in range(0, len(items), page_size)] or [[]]
 
 
+def _draw_cons_distribution(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    cons_values: Any,
+    fallback: Any = "",
+) -> None:
+    values = list(cons_values or [])
+    if not values and fallback:
+        parts = [part.strip() for part in str(fallback).split("/") if part.strip()]
+        values = [{"id": idx, "rate": part} for idx, part in enumerate(parts[:7])]
+    if not values:
+        _text(draw, (x, y + 12), "0-6命分布 暂无", (202, 214, 234), FONT_TEXT)
+        return
+
+    label_font = _font(17, True, "HYWH-65W.ttf")
+    rows = [values[:4], values[4:7]]
+    for row_index, row_values in enumerate(rows):
+        cur_x = x
+        cur_y = y + row_index * 30
+        for item in row_values:
+            try:
+                con_id = int(item.get("id"))
+            except Exception:
+                con_id = row_values.index(item)
+            rate = _format_stat_rate(item.get("rate"))
+            text = f"{con_id}命 {rate}"
+            text_width = draw.textlength(text, font=label_font)
+            box_w = int(text_width) + 20
+            _rounded_r(draw, (cur_x, cur_y, cur_x + box_w, cur_y + 24), 9, (34, 43, 66, 204), (82, 101, 143, 150), 1)
+            _text(draw, (cur_x + 10, cur_y + 3), text, (220, 230, 248), label_font)
+            cur_x += box_w + 8
+
+
 async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") -> List[bytes]:
     rows = list(data.get("rows") or [])
     if not rows:
@@ -2981,10 +3015,14 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
     stat_kind = str(data.get("kind") or "")
     is_cons_stat = stat_kind in {"cons_dist", "cons5"}
     rate_font = _font(30, True, "NZBZ.ttf")
+    card_width = 1280 if stat_kind == "cons_dist" else 1080
+    card_right = card_width - 64
+    row_height = 96 if stat_kind == "cons_dist" else 78
+    row_card_height = 82 if stat_kind == "cons_dist" else 64
     for page_index, page_rows in enumerate(pages, start=1):
-        height = max(760, 236 + len(page_rows) * 78 + 86)
+        height = max(760, 236 + len(page_rows) * row_height + 86)
         subtitle = f"共 {total} 条 · {source}数据 · 第 {page_index}/{len(pages)} 页"
-        img, draw = _miao_card_base(title, subtitle, height=height)
+        img, draw = _miao_card_base(title, subtitle, height=height, width=card_width)
         y = 196
         for row in page_rows:
             rank = int(row.get("rank") or 0)
@@ -2992,7 +3030,7 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
             top = rank <= 3
             fill = (42, 34, 24, 226) if top else (23, 32, 52, 218)
             outline = (232, 186, 94, 230) if top else (76, 94, 132, 190)
-            _rounded_r(draw, (64, y, 1016, y + 64), 20, fill, outline, 1)
+            _rounded_r(draw, (64, y, card_right, y + row_card_height), 20, fill, outline, 1)
             rank_color = (255, 218, 134) if top else (222, 230, 246)
             _text(draw, (88, y + 18), f"#{rank}", rank_color, FONT_HELP_CMD)
             face = _avatar_circle(_stat_face_path(name, game), 54)
@@ -3009,10 +3047,16 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
                 con_num = int(row.get("con_num") if row.get("con_num") is not None else -1)
                 if 0 <= con_num <= 6:
                     detail = f"{con_num}命占比 {_format_stat_rate(row.get('rate'))}"
+                    if row.get("count") not in (None, ""):
+                        detail += f" · 样本 {row.get('count')}"
+                    _text(draw, (680, y + 21), _fit_text(detail or "暂无更多数据", 34), (202, 214, 234), FONT_TEXT)
                 else:
-                    detail = f"0-6命分布 {row.get('cons') or '-'}"
-                if row.get("count") not in (None, ""):
-                    detail += f" · 样本 {row.get('count')}"
+                    _text(draw, (680, y + 12), "0-6命分布", (255, 232, 155), _font(18, True, "HYWH-65W.ttf"))
+                    _draw_cons_distribution(draw, 780, y + 10, row.get("cons_values"), row.get("cons"))
+                    if row.get("count") not in (None, ""):
+                        _text(draw, (680, y + 54), f"样本 {row.get('count')}", (158, 174, 204), FONT_TINY)
+                y += row_height
+                continue
             else:
                 detail = ""
                 if row.get("cons") not in (None, ""):
@@ -3020,7 +3064,7 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
                 if row.get("count") not in (None, ""):
                     detail += f" · 样本 {row.get('count')}"
             _text(draw, (660, y + 21), _fit_text(detail or "暂无更多数据", 30), (202, 214, 234), FONT_TEXT)
-            y += 78
+            y += row_height
         _text(draw, (64, height - 44), "提示：统计数据来自 miao-plugin 同源公开接口，仅作参考。", (145, 160, 190), FONT_TINY)
         images.append(await convert_img(img))
     return images
