@@ -165,7 +165,7 @@ async def send_gacha_import(bot: Bot, ev: Event):
         name = _game_name(game)
         return await bot.send(f"请先绑定 {name} UID，或在导入命令后携带 UID。\n可发送：{_import_help_command(game)}")
     if not payload:
-        return await bot.send(_import_help(game))
+        return await bot.send(_empty_gacha_message(game))
     if "authkey=" in payload and payload.startswith(("http://", "https://")):
         result = await import_gacha_authkey(game, str(ev.user_id or ""), uid, payload)
         return await bot.send(_format_import_result(result))
