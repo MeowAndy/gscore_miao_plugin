@@ -389,6 +389,7 @@ def _clean_stat_name(value: Any) -> str:
 def _stat_face_map(game: str = "gs") -> Dict[str, Path]:
     folder = "meta-sr" if game == "sr" else "meta-gs"
     ret: Dict[str, Path] = {}
+    priority: Dict[str, int] = {}
     for resource_dir in _resource_dirs():
         char_root = resource_dir / folder / "character"
         if not char_root.exists():
@@ -398,13 +399,13 @@ def _stat_face_map(game: str = "gs") -> Dict[str, Path]:
                 if not dirname.is_dir():
                     continue
                 name = _clean_stat_name(dirname.name)
-                if not name or name in ret:
+                if not name:
                     continue
-                for file_name in ("face-q.webp", "face.webp", "avatar.webp", "side.webp"):
+                for index, file_name in enumerate(("face-q.webp", "face-q.webq", "face.webp", "face.webq", "avatar.webp", "side.webp")):
                     path = dirname / "imgs" / file_name
-                    if path.exists():
+                    if path.exists() and index < priority.get(name, 999):
                         ret[name] = path
-                        break
+                        priority[name] = index
         except Exception:
             continue
     return ret
