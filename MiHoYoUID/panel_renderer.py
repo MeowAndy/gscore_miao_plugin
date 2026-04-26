@@ -3114,13 +3114,15 @@ def _draw_material_icons(img: Image.Image, draw: ImageDraw.ImageDraw, paths: Lis
 
 async def render_material_image(data: Dict[str, Any]) -> bytes:
     rows = list(data.get("rows") or [])
+    if data.get("all_open"):
+        img, draw = _miao_card_base("喵喵今日素材", f"{data.get('weekday_name')} · {data.get('message')}", height=520)
+        _rounded_r(draw, (64, 198, 1016, 342), 30, (52, 39, 22, 232), (232, 186, 94), 2)
+        _text(draw, (118, 240), "今天周日，全部天赋与武器突破素材副本都开放。", (255, 239, 198), FONT_HELP_GROUP)
+        _text(draw, (64, 472), "素材轮换与图标参考 miao-plugin；4 点前按前一天计算。", (145, 160, 190), FONT_TINY)
+        return await convert_img(img)
     height = max(820, 260 + max(len(rows), 1) * 112 + 92)
     img, draw = _miao_card_base("喵喵今日素材", f"{data.get('weekday_name')} · {data.get('message')}", height=height)
     y = 198
-    if data.get("all_open"):
-        _rounded_r(draw, (64, y, 1016, y + 76), 24, (52, 39, 22, 226), (232, 186, 94), 1)
-        _text(draw, (96, y + 22), "今天周日，全部天赋与武器突破素材副本都开放。", (255, 239, 198), FONT_HELP_CMD)
-        y += 98
     if not rows:
         _rounded_r(draw, (64, y, 1016, y + 110), 24, (24, 32, 52, 218), (80, 98, 138), 1)
         _text(draw, (96, y + 34), "未解析到素材数据。", (232, 238, 248), FONT_TEXT)

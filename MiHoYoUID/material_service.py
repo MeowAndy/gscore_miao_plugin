@@ -61,7 +61,9 @@ def _weapon_icon_prefix(name: str) -> str:
 
 
 def _build_public_rows(weekday: int, groups: Dict[str, List[str]]) -> List[Dict[str, Any]]:
-    group_ids = (1, 2, 3) if weekday == 6 else (_daily_group(weekday),)
+    if weekday == 6:
+        return []
+    group_ids = (_daily_group(weekday),)
     rows: List[Dict[str, Any]] = []
     for type_name, data in (("talent", TALENT_DAILY), ("weapon", WEAPON_DAILY)):
         for group in group_ids:
