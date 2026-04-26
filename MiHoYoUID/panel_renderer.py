@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from gsuid_core.utils.image.convert import convert_img
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .config import MiaoConfig
 from .light_cone_effects import get_light_cone_effect
@@ -2753,3 +2753,152 @@ async def render_calendar_images(cal_data: Dict[str, Any], page_size: int = 12) 
         }
         images.append(await render_calendar_image(page_data))
     return images
+
+
+def _miao_card_base(title: str, subtitle: str, height: int = 900, width: int = 1080) -> Tuple[Image.Image, ImageDraw.ImageDraw]:
+    img = _gradient_bg(width, height).convert("RGBA")
+    bg = _cover_image(_help_bg_path(), (width, height))
+    if bg:
+        bg.putalpha(68)
+        img.alpha_composite(bg)
+    img.alpha_composite(Image.new("RGBA", (width, height), (10, 14, 24, 138)))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse((width - 360, -180, width + 160, 280), fill=(231, 184, 99, 54))
+    draw.ellipse((-220, 180, 320, 720), fill=(88, 123, 190, 38))
+    _text(draw, (64, 48), title, (255, 247, 222), FONT_HELP_TITLE)
+    _text(draw, (68, 112), subtitle, (220, 228, 244), FONT_SUBTITLE)
+    return img, draw
+
+
+async def render_status_card(title: str, lines: List[str], subtitle: str = "GsCore miao-plugin") -> bytes:
+    height = max(520, 210 + len(lines) * 42 + 80)
+    img, draw = _miao_card_base(title, subtitle, height=height)
+    y = 200
+    _rounded_r(draw, (64, y - 22, 1016, height - 76), 24, (24, 32, 52, 218), (80, 98, 138), 1)
+    for line in lines[:18]:
+        _text(draw, (96, y), line, (232, 238, 248), FONT_TEXT)
+        y += 42
+    return await convert_img(img)
+
+
+async def render_gacha_image(data: Dict[str, Any]) -> bytes:
+    game = "崩铁" if data.get("game") == "sr" else "原神"
+    if not data.get("ok"):
+        lines = [str(data.get("message") or "抽卡记录不可用"), "已兼容 miao-plugin/data/gachaJson 与本插件 data 目录。"]
+        for path in (data.get("searched") or [])[:5]:
+            lines.append(f"· {path}")
+        return await render_status_card(f"喵喵{game}抽卡统计", lines, "请先导入或放置本地抽卡 JSON")
+    pools = list(data.get("pools") or [])
+    height = max(760, 250 + len(pools) * 190 + min(len(data.get("recent") or []), 8) * 46)
+    img, draw = _miao_card_base(f"喵喵{game}抽卡统计", f"UID {data.get('uid')} · 共 {data.get('total', 0)} 抽 · 本地记录", height=height)
+    y = 196
+    for pool in pools:
+        _rounded_r(draw, (64, y, 1016, y + 150), 22, (24, 32, 52, 222), (86, 102, 142), 1)
+        _text(draw, (94, y + 20), str(pool.get("label") or "卡池"), (255, 239, 198), FONT_HELP_GROUP)
+        stats = f"总抽 {pool.get('total', 0)} · 五星 {pool.get('five', 0)} · 四星 {pool.get('four', 0)} · 当前垫 {pool.get('current_pity', 0)} · 平均五星 {pool.get('avg_pity', 0)}"
+        _text(draw, (96, y + 62), stats, (218, 228, 245), FONT_TEXT)
+        five = pool.get("five_items") or []
+        five_text = " / ".join(f"{x.get('name', '未知')}({x.get('_pity', '-')})" for x in five[:5]) or "暂无五星记录"
+        _text(draw, (96, y + 102), _fit_text(five_text, 44), (188, 199, 222), FONT_HELP_DESC)
+        y += 176
+    recent = list(data.get("recent") or [])[:8]
+    _rounded_r(draw, (64, y, 1016, y + 62 + max(len(recent), 1) * 42), 22, (18, 27, 45, 218), (72, 88, 126), 1)
+    _text(draw, (94, y + 18), "最近记录", (255, 247, 222), FONT_HELP_GROUP)
+    y += 60
+    if not recent:
+        _text(draw, (96, y), "没有可展示的抽卡明细。", (210, 220, 238), FONT_TEXT)
+    for item in recent:
+        rank = int(item.get("_rank") or 0)
+        color = (255, 218, 134) if rank >= 5 else (198, 164, 255) if rank == 4 else (180, 190, 210)
+        line = f"{item.get('_pool_name', '卡池')} · {item.get('name', '未知')} · {rank}★ · {_item_time_for_render(item)}"
+        _text(draw, (96, y), _fit_text(line, 58), color, FONT_TEXT)
+        y += 42
+    _text(draw, (64, height - 44), f"数据目录：{_fit_text(str(data.get('root') or ''), 78)}", (145, 160, 190), FONT_TINY)
+    return await convert_img(img)
+
+
+def _item_time_for_render(item: Dict[str, Any]) -> str:
+    return str(item.get("time") or item.get("gacha_time") or item.get("date") or "")[:19]
+
+
+async def render_stat_image(data: Dict[str, Any], title: str = "喵喵统计") -> bytes:
+    rows = list(data.get("rows") or [])[:24]
+    if not rows:
+        return await render_status_card(title, [str(data.get("message") or "统计接口暂未返回数据"), "已按 miao-plugin 的胡桃/yshelper/lelaer 接口适配，接口异常会自动使用缓存。"], "统计数据")
+    height = max(760, 220 + len(rows) * 54 + 80)
+    img, draw = _miao_card_base(title, f"共 {data.get('total_rows', len(rows))} 条 · {'缓存' if data.get('cached') else '在线'}数据", height=height)
+    y = 196
+    for row in rows:
+        _rounded_r(draw, (64, y, 1016, y + 42), 14, (23, 32, 52, 210), (70, 86, 122), 1)
+        rank = int(row.get("rank") or 0)
+        color = (255, 218, 134) if rank <= 3 else (220, 228, 244)
+        _text(draw, (88, y + 8), f"#{rank}", color, FONT_HELP_DESC)
+        _text(draw, (160, y + 8), _fit_text(str(row.get("name") or "未知"), 18), (248, 244, 232), FONT_HELP_DESC)
+        rate = row.get("rate")
+        if isinstance(rate, (int, float)):
+            rate = f"{rate:.1f}%" if rate <= 100 else str(rate)
+        extra = f"{rate or '-'}"
+        if row.get("cons") not in (None, ""):
+            extra += f" · 命座 {row.get('cons')}"
+        if row.get("count") not in (None, ""):
+            extra += f" · 样本 {row.get('count')}"
+        _text(draw, (520, y + 8), _fit_text(extra, 34), (190, 202, 224), FONT_HELP_DESC)
+        y += 54
+    _text(draw, (64, height - 44), "提示：统计数据来自 miao-plugin 同源公开接口，仅作参考。", (145, 160, 190), FONT_TINY)
+    return await convert_img(img)
+
+
+async def render_material_image(data: Dict[str, Any]) -> bytes:
+    rows = list(data.get("rows") or [])
+    height = max(700, 240 + max(len(rows), 1) * 118 + 80)
+    img, draw = _miao_card_base("喵喵今日素材", f"{data.get('weekday_name')} · {data.get('message')}", height=height)
+    y = 198
+    if data.get("all_open"):
+        _rounded_r(draw, (64, y, 1016, y + 110), 24, (52, 39, 22, 226), (232, 186, 94), 1)
+        _text(draw, (96, y + 32), "今天是周日，全部天赋素材副本都开放。", (255, 239, 198), FONT_HELP_GROUP)
+        y += 132
+    if not rows:
+        _rounded_r(draw, (64, y, 1016, y + 110), 24, (24, 32, 52, 218), (80, 98, 138), 1)
+        _text(draw, (96, y + 34), "未从本地角色 Wiki 解析到素材数据。", (232, 238, 248), FONT_TEXT)
+    for row in rows:
+        chars = "、".join(row.get("characters") or [])
+        _rounded_r(draw, (64, y, 1016, y + 92), 20, (24, 32, 52, 222), (80, 98, 138), 1)
+        _text(draw, (94, y + 18), f"{row.get('material')} · {row.get('count', 0)} 位角色", (255, 239, 198), FONT_HELP_GROUP)
+        _text(draw, (96, y + 56), _fit_text(chars or "暂无", 62), (220, 228, 244), FONT_HELP_DESC)
+        y += 112
+    return await convert_img(img)
+
+
+async def render_image_gallery_card(title: str, items: List[str], subtitle: str = "自定义图库") -> bytes:
+    height = max(560, 210 + max(len(items), 1) * 40 + 78)
+    img, draw = _miao_card_base(title, subtitle, height=height)
+    y = 196
+    _rounded_r(draw, (64, y - 18, 1016, height - 74), 24, (24, 32, 52, 222), (80, 98, 138), 1)
+    if not items:
+        _text(draw, (96, y + 24), "当前没有自定义图片。", (232, 238, 248), FONT_TEXT)
+    for idx, item in enumerate(items[:20], start=1):
+        _text(draw, (96, y), f"{idx}. {_fit_text(item, 64)}", (224, 232, 246), FONT_TEXT)
+        y += 40
+    return await convert_img(img)
+
+
+async def render_character_photo_card(data: Dict[str, Any]) -> bytes:
+    if not data.get("ok"):
+        return await render_status_card("喵喵角色卡片", [str(data.get("message") or "未找到角色图片"), f"角色：{data.get('name') or '-'}"], "角色写真")
+    path = Path(str(data.get("path") or ""))
+    name = str(data.get("name") or "角色")
+    cover = _cover_image(path, (1080, 1500))
+    if not cover:
+        return await render_status_card("喵喵角色卡片", ["图片文件无法打开", str(path)], "角色写真")
+    img = Image.new("RGBA", (1080, 1500), (12, 18, 30, 255))
+    img.alpha_composite(cover)
+    overlay = Image.new("RGBA", (1080, 1500), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    od.rectangle((0, 0, 1080, 210), fill=(0, 0, 0, 118))
+    od.rectangle((0, 1260, 1080, 1500), fill=(0, 0, 0, 142))
+    img.alpha_composite(overlay)
+    draw = ImageDraw.Draw(img)
+    _shadow_text(draw, (64, 52), name, (255, 247, 222), FONT_HELP_TITLE)
+    _shadow_text(draw, (68, 118), f"喵喵角色卡片 · 共 {data.get('count', 1)} 张可选", (220, 228, 244), FONT_SUBTITLE)
+    _text(draw, (64, 1438), "发送“喵喵原图”可获取上一张原始图片路径；可用“上传角色照片 URL”添加自定义图。", (220, 228, 244), FONT_SMALL)
+    return await convert_img(img)
