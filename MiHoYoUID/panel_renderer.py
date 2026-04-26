@@ -678,12 +678,25 @@ def _draw_rank_sprite(img: Image.Image, char: Dict[str, Any], x: int, y: int, si
     _shadow_text(draw, (x + (size - tw) // 2, y + size - 23), text, (255, 238, 212), FONT_PROFILE_CONS)
 
 
-def _draw_avatar_orange_base(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> None:
+def _rarity_base_color(rarity: int) -> Tuple[Color, Color, Color]:
+    if rarity >= 5:
+        return (196, 122, 54), (255, 222, 150), (124, 76, 34)
+    if rarity == 4:
+        return (116, 76, 174), (220, 190, 255), (70, 47, 120)
+    return (76, 122, 164), (190, 225, 255), (42, 74, 108)
+
+
+def _draw_avatar_rarity_base(draw: ImageDraw.ImageDraw, x: int, y: int, size: int, rarity: int) -> None:
     pad = 6
+    fill, outline, inner_outline = _rarity_base_color(rarity)
     box = (x - pad, y - pad, x + size + pad, y + size + pad)
-    draw.ellipse(box, fill=(185, 121, 63), outline=(255, 238, 201), width=3)
+    draw.ellipse(box, fill=fill, outline=outline, width=3)
     inner = (x - 2, y - 2, x + size + 2, y + size + 2)
-    draw.ellipse(inner, outline=(126, 79, 42), width=2)
+    draw.ellipse(inner, outline=inner_outline, width=2)
+
+
+def _draw_avatar_orange_base(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> None:
+    _draw_avatar_rarity_base(draw, x, y, size, 5)
 
 
 def _draw_profile_avatar(img: Image.Image, draw: ImageDraw.ImageDraw, char: Dict[str, Any], x: int, y: int, is_new: bool) -> None:
@@ -695,11 +708,11 @@ def _draw_profile_avatar(img: Image.Image, draw: ImageDraw.ImageDraw, char: Dict
     rank_y = y - 6
     rank_bg = _rank_sprite(char, rank_size)
     rank_info = _char_rank_info(char)
+    rarity = _char_star(char)
+    _draw_avatar_rarity_base(draw, x, y, size, rarity)
     if rank_bg:
         img.alpha_composite(rank_bg, (rank_x, rank_y))
-    else:
-        _draw_avatar_orange_base(draw, x, y, size)
-    draw.ellipse((x, y, x + size, y + size), fill=_star_color(_char_star(char)), outline=(255, 255, 255), width=2)
+    draw.ellipse((x, y, x + size, y + size), fill=_star_color(rarity), outline=(255, 255, 255), width=2)
     if face:
         img.alpha_composite(face, (x, y))
     else:
