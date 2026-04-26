@@ -12,7 +12,7 @@ from .path import MAIN_PATH
 
 STAT_CACHE_DIR = MAIN_PATH / "cache" / "stat"
 STAT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 COMMON_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 URLS = {
@@ -20,8 +20,15 @@ URLS = {
     "cons_dist": "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
     "cons5": "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
     "abyss": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
+    "abyss_use": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
+    "abyss_own": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
+    "abyss_summary": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
     "hard": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
-    "team": "http://miao.games/api/hutao?api=team",
+    "hard_use": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
+    "hard_own": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
+    "hard_summary": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
+    "team": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
+    "role_combat": "",
 }
 
 
@@ -112,6 +119,11 @@ async def _fetch_cons_stat(client: httpx.AsyncClient) -> Dict[str, Any]:
 
 async def fetch_stat(kind: str, force: bool = False) -> Dict[str, Any]:
     kind = kind if kind in URLS else "abyss"
+    if kind == "role_combat":
+        return build_stat_placeholder(
+            kind,
+            "幻想真境剧诗数据在 miao-plugin 中为米游社 CK 个人数据接口，需要绑定 Cookie 后调用；当前仅公开深渊/幽境统计接口可直接展示。",
+        )
     cached = None if force else _read_cache(kind)
     if cached:
         cached["cached"] = True
@@ -172,6 +184,154 @@ def _clean_name(value: Any) -> str:
     return "".join(str(value or "").split())
 
 
+def _first_number(*values: Any) -> float:
+    for value in values:
+        try:
+            if value in (None, "", "-"):
+                continue
+            return float(str(value).strip().strip("%"))
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def _extract_rank_groups(raw: Any) -> List[Dict[str, Any]]:
+    result = raw.get("result") if isinstance(raw, dict) else []
+    if not isinstance(result, list):
+        return []
+    allowed = {"S+", "S", "A", "B", "C"}
+    groups: List[Dict[str, Any]] = []
+    for block in result:
+        if not isinstance(block, list):
+            continue
+        candidate = [x for x in block if isinstance(x, dict) and isinstance(x.get("list"), list)]
+        if candidate and any(str(x.get("rank_name") or "") in allowed for x in candidate):
+            groups = candidate
+            break
+    return groups
+
+
+def _normalize_abyss_rank_rows(payload: Dict[str, Any], limit: int, metric: str = "use_rate") -> Dict[str, Any]:
+    raw = payload.get("raw")
+    out: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    for group in _extract_rank_groups(raw):
+        rank_name = str(group.get("rank_name") or "")
+        for item in group.get("list") or []:
+            if not isinstance(item, dict):
+                continue
+            name = _clean_name(item.get("name") or item.get("role") or item.get("title"))
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            score = _first_number(item.get(metric), item.get("use_rate"))
+            own_rate = _first_number(item.get("own_rate"))
+            use = item.get("use") or item.get("count") or ""
+            own = item.get("own") or ""
+            detail_parts = [f"评级 {rank_name}" if rank_name else ""]
+            if own_rate:
+                detail_parts.append(f"持有率 {own_rate:.1f}%")
+            if own not in (None, ""):
+                detail_parts.append(f"持有 {own}")
+            out.append({
+                "rank": len(out) + 1,
+                "name": name,
+                "rate": f"{score:.1f}%",
+                "count": use,
+                "cons": " · ".join(x for x in detail_parts if x),
+                "score": score,
+                "raw": item,
+            })
+    out.sort(key=lambda x: x["score"], reverse=True)
+    for idx, row in enumerate(out, start=1):
+        row["rank"] = idx
+    return {**payload, "rows": out[:limit], "total_rows": len(out), "game": "gs"}
+
+
+def _avatar_name_map(raw: Any) -> Dict[str, str]:
+    rows = raw.get("has_list") if isinstance(raw, dict) else []
+    ret: Dict[str, str] = {}
+    if not isinstance(rows, list):
+        return ret
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        avatar = str(item.get("avatar") or "")
+        name = _clean_name(item.get("name"))
+        if avatar and name:
+            ret[avatar] = name
+    return ret
+
+
+def _extract_team_rows(raw: Any) -> List[Dict[str, Any]]:
+    result = raw.get("result") if isinstance(raw, dict) else []
+    if not isinstance(result, list):
+        return []
+    for block in result:
+        if not isinstance(block, list) or not block:
+            continue
+        first = block[0]
+        if isinstance(first, dict) and isinstance(first.get("role"), list):
+            return [x for x in block if isinstance(x, dict)]
+    return []
+
+
+def _normalize_team_rows(payload: Dict[str, Any], limit: int) -> Dict[str, Any]:
+    raw = payload.get("raw")
+    avatar_names = _avatar_name_map(raw)
+    out: List[Dict[str, Any]] = []
+    for idx, item in enumerate(_extract_team_rows(raw), start=1):
+        names: List[str] = []
+        for role in item.get("role") or []:
+            if not isinstance(role, dict):
+                continue
+            name = _clean_name(role.get("name"))
+            avatar = str(role.get("avatar") or "")
+            names.append(name or avatar_names.get(avatar) or "未知角色")
+        if not names:
+            continue
+        score = _first_number(item.get("use_rate"), item.get("attend_rate"))
+        up = item.get("up_use_num") or item.get("up_use") or 0
+        down = item.get("down_use_num") or item.get("down_use") or 0
+        detail = f"上半 {up} · 下半 {down}"
+        has_rate = _first_number(item.get("has_rate"))
+        if has_rate:
+            detail += f" · 持有率 {has_rate:.1f}%"
+        out.append({
+            "rank": idx,
+            "name": " / ".join(names),
+            "rate": f"{score:.1f}%",
+            "count": item.get("use") or "",
+            "cons": detail,
+            "score": score,
+            "raw": item,
+        })
+    out.sort(key=lambda x: x["score"], reverse=True)
+    for idx, row in enumerate(out, start=1):
+        row["rank"] = idx
+    return {**payload, "rows": out[:limit], "total_rows": len(out), "game": "gs"}
+
+
+def _normalize_overview_rows(payload: Dict[str, Any], limit: int, name: str) -> Dict[str, Any]:
+    raw = payload.get("raw") if isinstance(payload.get("raw"), dict) else {}
+    items = [
+        ("有效样本", raw.get("top_own"), raw.get("tips")),
+        ("满星率", raw.get("star36_rate"), "star36_rate"),
+        ("一次满星率", raw.get("star36_once_rate"), "star36_once_rate"),
+        ("平均重开次数", raw.get("restart_times_avg"), "restart_times_avg"),
+        ("难度指数", raw.get("nandu"), "nandu"),
+    ]
+    rows: List[Dict[str, Any]] = []
+    for idx, (row_name, value, detail) in enumerate(items, start=1):
+        if value in (None, ""):
+            continue
+        rate = f"{_first_number(value):.1f}%" if "率" in row_name else str(value)
+        rows.append({"rank": idx, "name": row_name, "rate": rate, "count": "", "cons": detail or name, "score": len(items) - idx, "raw": raw})
+    if not rows and raw.get("tips"):
+        rows.append({"rank": 1, "name": name, "rate": "-", "count": "", "cons": raw.get("tips"), "score": 1, "raw": raw})
+    return {**payload, "rows": rows[:limit], "total_rows": len(rows), "game": "gs"}
+
+
 def _normalize_cons_rows(payload: Dict[str, Any], limit: int, mode: str = "hold", con_num: int = -1) -> Dict[str, Any]:
     raw = payload.get("raw")
     has_rows = raw.get("has_list") if isinstance(raw, dict) else []
@@ -228,6 +388,16 @@ def normalize_stat_rows(payload: Dict[str, Any], limit: int = 24) -> Dict[str, A
         return _normalize_cons_rows(payload, limit, "cons")
     if kind == "cons5":
         return _normalize_cons_rows(payload, limit, "cons", 5)
+    if kind in {"abyss", "abyss_use", "hard", "hard_use"}:
+        return _normalize_abyss_rank_rows(payload, limit, "use_rate")
+    if kind in {"abyss_own", "hard_own"}:
+        return _normalize_abyss_rank_rows(payload, limit, "use_rate")
+    if kind == "team":
+        return _normalize_team_rows(payload, limit)
+    if kind == "abyss_summary":
+        return _normalize_overview_rows(payload, limit, "深渊数据")
+    if kind == "hard_summary":
+        return _normalize_overview_rows(payload, limit, "幽境危战数据")
     raw = payload.get("raw")
     rows = _as_rows(raw)
     out: List[Dict[str, Any]] = []

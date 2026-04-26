@@ -3004,6 +3004,7 @@ def _draw_cons_distribution(
 
 async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") -> List[bytes]:
     rows = list(data.get("rows") or [])
+    stat_kind = str(data.get("kind") or "")
     if not rows:
         lines = [str(data.get("message") or "统计接口暂未返回数据")]
         if data.get("kind") == "sr_cons":
@@ -3017,10 +3018,11 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
     total = int(data.get("total_rows") or len(rows))
     source = "缓存" if data.get("cached") else "在线"
     game = "sr" if data.get("game") == "sr" else "gs"
-    stat_kind = str(data.get("kind") or "")
     is_cons_stat = stat_kind in {"cons_dist", "cons5"}
+    is_team_stat = stat_kind == "team"
+    is_abyss_stat = stat_kind in {"abyss", "abyss_use", "abyss_own", "hard", "hard_use", "hard_own", "abyss_summary", "hard_summary"}
     rate_font = _font(30, True, "NZBZ.ttf")
-    card_width = 1280 if stat_kind == "cons_dist" else 1080
+    card_width = 1280 if stat_kind == "cons_dist" else 1180 if is_team_stat else 1080
     card_right = card_width - 64
     row_height = 108 if stat_kind == "cons_dist" else 78
     row_card_height = 92 if stat_kind == "cons_dist" else 64
@@ -3044,10 +3046,13 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
             else:
                 _rounded_r(draw, (148, y + 5, 202, y + 59), 27, (74, 88, 122, 230), (122, 142, 184), 1)
                 _text(draw, (163, y + 18), name[:1], (255, 247, 222), FONT_TEXT)
-            fit_name, name_font = _fit_font_text(draw, name, 278, [FONT_CARD_TITLE, FONT_HELP_CMD, FONT_TEXT], min_chars=3)
+            name_limit = 418 if is_team_stat else 278
+            fit_name, name_font = _fit_font_text(draw, name, name_limit, [FONT_CARD_TITLE, FONT_HELP_CMD, FONT_TEXT, FONT_SMALL], min_chars=3)
             _text(draw, (218, y + 8), fit_name, (255, 248, 232), name_font)
-            _text(draw, (218, y + 38), "角色命座统计" if is_cons_stat else "角色持有统计", (164, 178, 205), FONT_TINY)
-            _text(draw, (520, y + 13), _format_stat_rate(row.get("rate")), (255, 232, 155), rate_font)
+            sub_title = "深渊队伍统计" if is_team_stat else "深渊/幽境统计" if is_abyss_stat else "角色命座统计" if is_cons_stat else "角色持有统计"
+            _text(draw, (218, y + 38), sub_title, (164, 178, 205), FONT_TINY)
+            rate_x = 650 if is_team_stat else 520
+            _text(draw, (rate_x, y + 13), _format_stat_rate(row.get("rate")), (255, 232, 155), rate_font)
             if is_cons_stat:
                 con_num = int(row.get("con_num") if row.get("con_num") is not None else -1)
                 if 0 <= con_num <= 6:
@@ -3065,12 +3070,15 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
             else:
                 detail = ""
                 if row.get("cons") not in (None, ""):
-                    detail += f"平均命座 {row.get('cons')}"
+                    detail += str(row.get("cons")) if is_abyss_stat or is_team_stat else f"平均命座 {row.get('cons')}"
                 if row.get("count") not in (None, ""):
                     detail += f" · 样本 {row.get('count')}"
-            _text(draw, (660, y + 21), _fit_text(detail or "暂无更多数据", 30), (202, 214, 234), FONT_TEXT)
+            detail_x = 800 if is_team_stat else 660
+            detail_len = 28 if is_team_stat else 30
+            _text(draw, (detail_x, y + 21), _fit_text(detail or "暂无更多数据", detail_len), (202, 214, 234), FONT_TEXT)
             y += row_height
-        _text(draw, (64, height - 44), "提示：统计数据来自 miao-plugin 同源公开接口，仅作参考。", (145, 160, 190), FONT_TINY)
+        footer = "提示：队伍数据来自 yshelper 深渊配队公开统计，未绑定 CK 时不做个人角色排序。" if is_team_stat else "提示：统计数据来自 miao-plugin 同源公开接口，仅作参考。"
+        _text(draw, (64, height - 44), footer, (145, 160, 190), FONT_TINY)
         images.append(await convert_img(img))
     return images
 
