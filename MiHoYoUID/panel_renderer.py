@@ -2784,9 +2784,10 @@ async def render_status_card(title: str, lines: List[str], subtitle: str = "GsCo
 async def render_gacha_image(data: Dict[str, Any]) -> bytes:
     game = "崩铁" if data.get("game") == "sr" else "原神"
     if not data.get("ok"):
-        lines = [str(data.get("message") or "抽卡记录不可用"), "已兼容 miao-plugin/data/gachaJson 与本插件 data 目录。"]
-        for path in (data.get("searched") or [])[:5]:
-            lines.append(f"· {path}")
+        lines = [
+            str(data.get("message") or "抽卡记录不可用"),
+            "请先导入抽卡记录，或把本地 JSON 放到兼容目录后再查询。",
+        ]
         return await render_status_card(f"喵喵{game}抽卡统计", lines, "请先导入或放置本地抽卡 JSON")
     pools = list(data.get("pools") or [])
     height = max(760, 250 + len(pools) * 190 + min(len(data.get("recent") or []), 8) * 46)
