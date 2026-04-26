@@ -139,7 +139,11 @@ GACHA_COMMANDS = (
     "星铁常驻池抽卡统计",
 )
 
+GACHA_PREFIXES = ("喵喵", "miao", "MM")
+PREFIXED_GACHA_COMMANDS = tuple(f"{prefix}{cmd}" for prefix in GACHA_PREFIXES for cmd in GACHA_COMMANDS)
+
 GACHA_COMMAND_PREFIXES = tuple(f"{cmd} " for cmd in GACHA_COMMANDS)
+PREFIXED_GACHA_COMMAND_PREFIXES = tuple(f"{cmd} " for cmd in PREFIXED_GACHA_COMMANDS)
 
 
 @sv_gacha.on_fullmatch(("导入原神抽卡记录帮助", "原神抽卡记录导入帮助", "原神抽卡帮助"), block=True)
@@ -176,7 +180,7 @@ async def send_gacha_import(bot: Bot, ev: Event):
     await bot.send(_format_import_result(result))
 
 
-@sv_gacha.on_fullmatch(GACHA_COMMANDS, block=True)
+@sv_gacha.on_fullmatch(GACHA_COMMANDS + PREFIXED_GACHA_COMMANDS, block=True)
 async def send_gacha_stat_fullmatch(bot: Bot, ev: Event):
     await _send_gacha_stat(bot, ev)
 
@@ -191,7 +195,7 @@ async def send_gacha_stat_with_uid(bot: Bot, ev: Event):
     await _send_gacha_stat(bot, ev)
 
 
-@sv_gacha.on_prefix(GACHA_COMMAND_PREFIXES, block=True)
+@sv_gacha.on_prefix(GACHA_COMMAND_PREFIXES + PREFIXED_GACHA_COMMAND_PREFIXES, block=True)
 async def send_gacha_stat_prefix_uid(bot: Bot, ev: Event):
     await _send_gacha_stat(bot, ev)
 
