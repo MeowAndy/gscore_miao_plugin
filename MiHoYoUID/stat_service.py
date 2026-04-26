@@ -12,7 +12,8 @@ from .path import MAIN_PATH
 
 STAT_CACHE_DIR = MAIN_PATH / "cache" / "stat"
 STAT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-CACHE_VERSION = 2
+CACHE_VERSION = 3
+COMMON_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 URLS = {
     "cons": "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
@@ -61,22 +62,49 @@ def _unwrap(raw: Any) -> Any:
     return raw
 
 
+def _loads_json(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except Exception:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return json.loads(text[start:end + 1])
+        raise
+
+
 async def _fetch_json(client: httpx.AsyncClient, url: str) -> Any:
-    resp = await client.get(url, headers={"User-Agent": "GsCoreMiao/0.15"})
+    resp = await client.get(url, headers={"User-Agent": COMMON_UA})
     resp.raise_for_status()
-    return resp.json()
+    return _loads_json(resp.text)
 
 
 async def _fetch_cons_stat(client: httpx.AsyncClient) -> Dict[str, Any]:
-    lelaer = await _fetch_json(client, URLS["cons"])
+    lelaer: Dict[str, Any] = {}
+    lelaer_error = ""
     try:
-        abyss = await _fetch_json(client, URLS["abyss"])
-    except Exception:
+        lelaer_raw = await _fetch_json(client, URLS["cons"])
+        lelaer = lelaer_raw if isinstance(lelaer_raw, dict) else {}
+    except Exception as e:
+        lelaer_error = str(e)
+    try:
+        abyss_raw = await _fetch_json(client, URLS["abyss"])
+        abyss = abyss_raw if isinstance(abyss_raw, dict) else {}
+    except Exception as e:
+        if lelaer_error:
+            raise RuntimeError(f"Lelaer: {lelaer_error}; Yshelper: {e}") from e
         abyss = {}
+    result = lelaer.get("result") if isinstance(lelaer.get("result"), list) else []
+    has_list = abyss.get("has_list") if isinstance(abyss.get("has_list"), list) else []
+    if not result and not has_list:
+        msg = lelaer_error or "接口未返回 result/has_list"
+        raise RuntimeError(msg)
     return {
-        "result": lelaer.get("result") if isinstance(lelaer, dict) else [],
-        "has_list": abyss.get("has_list") if isinstance(abyss, dict) else [],
-        "last_update": lelaer.get("last_update") if isinstance(lelaer, dict) else "",
+        "result": result,
+        "has_list": has_list,
+        "last_update": lelaer.get("last_update") or abyss.get("last_update") or "",
+        "top_own": abyss.get("top_own") or 0,
+        "lelaer_error": lelaer_error,
     }
 
 
@@ -86,8 +114,15 @@ async def fetch_stat(kind: str, force: bool = False) -> Dict[str, Any]:
     if cached:
         cached["cached"] = True
         return cached
-    async with httpx.AsyncClient(timeout=_timeout(), follow_redirects=True) as client:
-        raw = await _fetch_cons_stat(client) if kind == "cons" else await _fetch_json(client, URLS[kind])
+    try:
+        async with httpx.AsyncClient(timeout=_timeout(), follow_redirects=True) as client:
+            raw = await _fetch_cons_stat(client) if kind == "cons" else await _fetch_json(client, URLS[kind])
+    except Exception:
+        cached = _read_cache(kind, ttl=86400 * 14)
+        if cached:
+            cached["cached"] = True
+            return cached
+        raise
     payload = {"kind": kind, "url": URLS[kind], "raw": raw if kind == "cons" else _unwrap(raw), "cached": False, "updated": int(time.time()), "cache_version": CACHE_VERSION}
     _write_cache(kind, payload)
     return payload
@@ -123,6 +158,10 @@ def _fmt_percent(value: Any) -> str:
     return f"{score:.2f}%" if score else "-"
 
 
+def _clean_name(value: Any) -> str:
+    return "".join(str(value or "").split())
+
+
 def _normalize_cons_rows(payload: Dict[str, Any], limit: int) -> Dict[str, Any]:
     raw = payload.get("raw")
     has_rows = raw.get("has_list") if isinstance(raw, dict) else []
@@ -130,16 +169,18 @@ def _normalize_cons_rows(payload: Dict[str, Any], limit: int) -> Dict[str, Any]:
     if isinstance(has_rows, list):
         for item in has_rows:
             if isinstance(item, dict) and item.get("name"):
-                has_map[str(item.get("name"))] = item.get("own_rate")
+                has_map[_clean_name(item.get("name"))] = item.get("own_rate")
 
     rows = _as_rows(raw)
+    if not rows and isinstance(has_rows, list):
+        rows = [x for x in has_rows if isinstance(x, dict)]
     out: List[Dict[str, Any]] = []
     for idx, row in enumerate(rows, start=1):
         name = row.get("role") or row.get("name") or row.get("title") or row.get("cn") or f"第{idx}项"
-        name = str(name).strip()
+        name = _clean_name(name)
         if name.startswith(("http://", "https://")):
             name = f"第{idx}项"
-        own_rate = row.get("own_rate") or row.get("holdingRate") or has_map.get(name)
+        own_rate = row.get("own_rate") or row.get("holdingRate") or has_map.get(_clean_name(name))
         cons = row.get("avg_class") or row.get("avgCons") or row.get("cons") or ""
         count = row.get("role_sum") or row.get("count") or row.get("total") or ""
         score = _score_value(own_rate)
