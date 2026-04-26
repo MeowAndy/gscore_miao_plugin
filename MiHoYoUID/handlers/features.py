@@ -117,7 +117,7 @@ async def send_alias(bot: Bot, ev: Event):
     await bot.send(render_alias_text(name))
 
 
-@sv_feature.on_regex(r"^(原神|崩铁|星铁)?(?P<name>.+?)(?P<mode>天赋|技能|行迹|命座|命之座|星魂|资料|图鉴|材料|素材|养成)$", block=True)
+@sv_feature.on_regex(r"^(原神|崩铁|星铁)?(?!(今日|今天|每日|明日|明天|周[1-7一二三四五六日天])(?:素材|材料|天赋)$)(?P<name>.+?)(?P<mode>天赋|技能|行迹|命座|命之座|星魂|资料|图鉴|材料|素材|养成)$", block=True)
 async def send_char_wiki(bot: Bot, ev: Event):
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")

@@ -11,6 +11,12 @@ from ..panel_renderer import render_material_image, render_status_card
 sv_wiki_extra = SV("GsCoreMiao素材Wiki")
 
 MATERIAL_COMMANDS = (
+    "原神今日素材",
+    "原神今天素材",
+    "原神每日材料",
+    "原神今日材料",
+    "原神明日材料",
+    "原神明天材料",
     "今日素材",
     "今天素材",
     "每日材料",
@@ -41,6 +47,30 @@ MATERIAL_COMMANDS = (
     "周天素材",
     "周天材料",
     "周天天赋",
+    "原神周一素材",
+    "原神周一材料",
+    "原神周一天赋",
+    "原神周二素材",
+    "原神周二材料",
+    "原神周二天赋",
+    "原神周三素材",
+    "原神周三材料",
+    "原神周三天赋",
+    "原神周四素材",
+    "原神周四材料",
+    "原神周四天赋",
+    "原神周五素材",
+    "原神周五材料",
+    "原神周五天赋",
+    "原神周六素材",
+    "原神周六材料",
+    "原神周六天赋",
+    "原神周日素材",
+    "原神周日材料",
+    "原神周日天赋",
+    "原神周天素材",
+    "原神周天材料",
+    "原神周天天赋",
 )
 
 ZZZ_CALENDAR_COMMANDS = (
@@ -61,7 +91,7 @@ async def send_today_material_fullmatch(bot: Bot, ev: Event):
     await _send_today_material(bot, ev)
 
 
-@sv_wiki_extra.on_regex(r"^(今日素材|今天素材|每日材料|今日材料|明日材料|明天材料|周[一二三四五六日天]素材|周[一二三四五六日天]材料|周[一二三四五六日天]天赋)$", block=True)
+@sv_wiki_extra.on_regex(r"^(原神)?(今日素材|今天素材|每日材料|今日材料|明日材料|明天材料|周[1-7一二三四五六日天]素材|周[1-7一二三四五六日天]材料|周[1-7一二三四五六日天]天赋)$", block=True)
 async def send_today_material(bot: Bot, ev: Event):
     await _send_today_material(bot, ev)
 
