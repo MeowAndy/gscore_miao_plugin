@@ -6,7 +6,7 @@ from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
 from ..material_service import build_today_material
-from ..panel_renderer import render_material_image, render_status_card
+from ..panel_renderer import render_material_image
 
 sv_wiki_extra = SV("GsCoreMiao素材Wiki")
 
@@ -73,19 +73,6 @@ MATERIAL_COMMANDS = (
     "原神周天天赋",
 )
 
-ZZZ_CALENDAR_COMMANDS = (
-    "绝区零日历",
-    "绝区零日历列表",
-    "绝区零活动",
-    "ZZZ日历",
-    "ZZZ日历列表",
-    "ZZZ活动",
-    "zzz日历",
-    "zzz日历列表",
-    "zzz活动",
-)
-
-
 @sv_wiki_extra.on_fullmatch(MATERIAL_COMMANDS, block=True)
 async def send_today_material_fullmatch(bot: Bot, ev: Event):
     await _send_today_material(bot, ev)
@@ -101,19 +88,3 @@ async def _send_today_material(bot: Bot, ev: Event):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     text = getattr(ev, "raw_text", "") or ""
     await bot.send(await render_material_image(build_today_material(text)))
-
-
-@sv_wiki_extra.on_fullmatch(ZZZ_CALENDAR_COMMANDS, block=True)
-async def send_zzz_calendar_fullmatch(bot: Bot, ev: Event):
-    await _send_zzz_calendar(bot, ev)
-
-
-@sv_wiki_extra.on_regex(r"^(绝区零|ZZZ|zzz)(日历|日历列表|活动)$", block=True)
-async def send_zzz_calendar(bot: Bot, ev: Event):
-    await _send_zzz_calendar(bot, ev)
-
-
-async def _send_zzz_calendar(bot: Bot, ev: Event):
-    if not can_use_plugin(ev):
-        return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
-    await bot.send(await render_status_card("喵喵绝区零日历", ["已预留 miao-plugin 同款日历入口。", "当前本仓库尚未配置绝区零公告 API，避免返回错误数据。", "原神/崩铁日历可直接使用：喵喵原神日历、喵喵崩铁日历。"], "日历入口"))
