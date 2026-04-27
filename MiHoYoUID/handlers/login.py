@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 from gsuid_core.bot import Bot
 from gsuid_core.logger import logger
 from gsuid_core.models import Event
@@ -89,6 +90,20 @@ def _sign_error_message(e: Exception) -> str:
     return f"{exc_name}，米游社接口未返回具体原因"
 
 
+def _is_timeout_error(e: Exception) -> bool:
+    return isinstance(e, httpx.TimeoutException) or "Timeout" in e.__class__.__name__
+
+
+def _format_sign_section(game: str, uid: str, status: str, total: object = "?", today: object = "") -> str:
+    return (
+        f"【{game}签到】\n"
+        f"🆔 UID：{uid}\n"
+        f"✅ 状态：{status}\n"
+        f"📅 累计签到：{total or '?'} 天\n"
+        f"🕒 日期：{today or ''}"
+    )
+
+
 async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[list[str], list[str]]:
     cookie = str(cfg.get("mys_cookie") or "")
     if not cookie:
@@ -119,17 +134,18 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
             before = await fetch_sign_info(cookie, gs_uid)
             signed = bool(before.get("is_sign"))
             raw = await daily_sign(cookie, gs_uid) if not signed else {"message": "OK", "retcode": -5003}
-            after = await fetch_sign_info(cookie, gs_uid)
+            try:
+                after = await fetch_sign_info(cookie, gs_uid)
+            except Exception as e:
+                if raw.get("retcode") in (0, "0", -5003) and _is_timeout_error(e):
+                    logger.warning(f"[喵喵签到] 原神 {gs_uid} 签到后状态刷新超时，按签到请求结果统计成功")
+                    after = before
+                else:
+                    raise
             total = after.get("total_sign_day") or before.get("total_sign_day") or "?"
             today = after.get("today") or before.get("today") or ""
             status = "今日已签到" if signed or raw.get("retcode") == -5003 else "签到成功"
-            sections.append(
-                "【原神签到】\n"
-                f"🆔 UID：{gs_uid}\n"
-                f"✅ 状态：{status}\n"
-                f"📅 累计签到：{total} 天\n"
-                f"🕒 日期：{today}"
-            )
+            sections.append(_format_sign_section("原神", gs_uid, status, total, today))
         except Exception as e:
             logger.exception(f"[喵喵签到] 原神 {gs_uid} 签到失败")
             errors.append(f"原神 {gs_uid}：{_sign_error_message(e)}")
@@ -139,17 +155,18 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
             before = await fetch_starrail_sign_info(cookie, sr_uid)
             signed = bool(before.get("is_sign"))
             raw = await daily_sign_starrail(cookie, sr_uid) if not signed else {"message": "OK", "retcode": -5003}
-            after = await fetch_starrail_sign_info(cookie, sr_uid)
+            try:
+                after = await fetch_starrail_sign_info(cookie, sr_uid)
+            except Exception as e:
+                if raw.get("retcode") in (0, "0", -5003) and _is_timeout_error(e):
+                    logger.warning(f"[喵喵签到] 崩铁 {sr_uid} 签到后状态刷新超时，按签到请求结果统计成功")
+                    after = before
+                else:
+                    raise
             total = after.get("total_sign_day") or before.get("total_sign_day") or "?"
             today = after.get("today") or before.get("today") or ""
             status = "今日已签到" if signed or raw.get("retcode") == -5003 else "签到成功"
-            sections.append(
-                "【崩铁签到】\n"
-                f"🆔 UID：{sr_uid}\n"
-                f"✅ 状态：{status}\n"
-                f"📅 累计签到：{total} 天\n"
-                f"🕒 日期：{today}"
-            )
+            sections.append(_format_sign_section("崩铁", sr_uid, status, total, today))
         except Exception as e:
             logger.exception(f"[喵喵签到] 崩铁 {sr_uid} 签到失败")
             errors.append(f"崩铁 {sr_uid}：{_sign_error_message(e)}")
