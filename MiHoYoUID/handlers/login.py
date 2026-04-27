@@ -346,12 +346,11 @@ async def send_all_daily_sign(bot: Bot, ev: Event):
         return await bot.send("只有主人可以执行全部签到")
     if not MiaoConfig.get_config("EnableDailySign").data:
         return await bot.send("米游社签到功能已在网页配置中关闭")
-    from ..auto_sign import auto_daily_sign_task, push_sign_result
+    from ..auto_sign import auto_daily_sign_task
 
     await bot.send("[喵喵全部签到] 已开始执行，请等待全部账号签到完成...")
     summary = await auto_daily_sign_task(sign_all=True)
     await bot.send(summary)
-    await push_sign_result(summary)
 
 
 @sv_login.on_regex(r"^(订阅|取消订阅)签到结果$", block=True)
