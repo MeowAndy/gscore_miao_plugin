@@ -20,6 +20,7 @@ STAT_COMMANDS = (
     "深渊使用率",
     "深渊组队",
     "深渊配队",
+    "深渊配对",
     "深渊数据",
     "幻想真境剧诗数据",
     "幻想真境数据",
@@ -37,11 +38,14 @@ STAT_PREFIXES = ("喵喵", "miao", "MM")
 PREFIXED_STAT_COMMANDS = tuple(f"{prefix}{cmd}" for prefix in STAT_PREFIXES for cmd in STAT_COMMANDS)
 PREFIXED_SR_OWNERSHIP_COMMANDS = tuple(f"{prefix}{cmd}" for prefix in STAT_PREFIXES for cmd in SR_OWNERSHIP_COMMANDS)
 STAT_COMMAND_PATTERN = "|".join(STAT_COMMANDS + PREFIXED_STAT_COMMANDS)
+ABYSS_PCT_PATTERN = r"(?:喵喵|miao|MM)?(?:深渊|幽境|危战|幽境危战)(?:第?.{1,3}层)?(?:角色)?(?:出场|使用)(?:率|统计)?"
+ABYSS_TEAM_PATTERN = r"(?:喵喵|miao|MM)?深渊(?:组队|配队|配对)"
+ABYSS_SUMMARY_PATTERN = r"(?:喵喵|上传|miao|MM)?(?:深渊|深境|深境螺旋)\s*[0-9]*(?:数据)?"
 
 
 def _kind_title(text: str) -> tuple[str, str]:
-    if "组队" in text or "配队" in text:
-        return "team", "喵喵深渊组队"
+    if "组队" in text or "配队" in text or "配对" in text:
+        return "team", "喵喵深渊配队建议" if "配" in text else "喵喵深渊组队"
     if "幻想" in text or "剧诗" in text:
         return "role_combat", "喵喵幻想真境剧诗数据"
     if ("幽境" in text or "危战" in text) and "数据" in text:
@@ -73,6 +77,11 @@ async def send_sr_ownership_unavailable(bot: Bot, ev: Event):
 
 @sv_stat.on_regex(rf"^(?P<cmd>{STAT_COMMAND_PATTERN})$", block=True)
 async def send_public_stat(bot: Bot, ev: Event):
+    await _send_public_stat(bot, ev)
+
+
+@sv_stat.on_regex(rf"^(?P<cmd>{ABYSS_PCT_PATTERN}|{ABYSS_TEAM_PATTERN}|{ABYSS_SUMMARY_PATTERN})$", block=True)
+async def send_miao_abyss_stat(bot: Bot, ev: Event):
     await _send_public_stat(bot, ev)
 
 

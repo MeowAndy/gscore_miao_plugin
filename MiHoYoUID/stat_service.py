@@ -14,6 +14,7 @@ STAT_CACHE_DIR = MAIN_PATH / "cache" / "stat"
 STAT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_VERSION = 5
 COMMON_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+ABYSS_RANK_NAMES = {"S+", "S", "A", "B", "C"}
 
 URLS = {
     "cons": "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
@@ -199,13 +200,12 @@ def _extract_rank_groups(raw: Any) -> List[Dict[str, Any]]:
     result = raw.get("result") if isinstance(raw, dict) else []
     if not isinstance(result, list):
         return []
-    allowed = {"S+", "S", "A", "B", "C"}
     groups: List[Dict[str, Any]] = []
     for block in result:
         if not isinstance(block, list):
             continue
         candidate = [x for x in block if isinstance(x, dict) and isinstance(x.get("list"), list)]
-        if candidate and any(str(x.get("rank_name") or "") in allowed for x in candidate):
+        if candidate and any(str(x.get("rank_name") or "") in ABYSS_RANK_NAMES for x in candidate):
             groups = candidate
             break
     return groups
@@ -225,12 +225,17 @@ def _normalize_abyss_rank_rows(payload: Dict[str, Any], limit: int, metric: str 
                 continue
             seen.add(name)
             score = _first_number(item.get(metric), item.get("use_rate"))
+            use_rate = _first_number(item.get("use_rate"))
             own_rate = _first_number(item.get("own_rate"))
             use = item.get("use") or item.get("count") or ""
             own = item.get("own") or ""
             detail_parts = [f"评级 {rank_name}" if rank_name else ""]
+            if metric != "use_rate" and use_rate:
+                detail_parts.append(f"使用率 {use_rate:.1f}%")
             if own_rate:
                 detail_parts.append(f"持有率 {own_rate:.1f}%")
+            if use not in (None, ""):
+                detail_parts.append(f"出场 {use}")
             if own not in (None, ""):
                 detail_parts.append(f"持有 {own}")
             out.append({
@@ -290,10 +295,13 @@ def _normalize_team_rows(payload: Dict[str, Any], limit: int) -> Dict[str, Any]:
             names.append(name or avatar_names.get(avatar) or "未知角色")
         if not names:
             continue
-        score = _first_number(item.get("use_rate"), item.get("attend_rate"))
+        score = _first_number(item.get("attend_rate"), item.get("use_rate"), item.get("has_rate"))
         up = item.get("up_use_num") or item.get("up_use") or 0
         down = item.get("down_use_num") or item.get("down_use") or 0
         detail = f"上半 {up} · 下半 {down}"
+        use_rate = _first_number(item.get("use_rate"))
+        if use_rate:
+            detail += f" · 使用率 {use_rate:.1f}%"
         has_rate = _first_number(item.get("has_rate"))
         if has_rate:
             detail += f" · 持有率 {has_rate:.1f}%"
@@ -314,12 +322,33 @@ def _normalize_team_rows(payload: Dict[str, Any], limit: int) -> Dict[str, Any]:
 
 def _normalize_overview_rows(payload: Dict[str, Any], limit: int, name: str) -> Dict[str, Any]:
     raw = payload.get("raw") if isinstance(payload.get("raw"), dict) else {}
+    rank_groups = _extract_rank_groups(raw)
+    rank_summary = " / ".join(
+        f"{group.get('rank_name')}级 {len(group.get('list') or [])}人"
+        for group in rank_groups
+        if group.get("rank_name")
+    )
+    role_count = sum(len(group.get("list") or []) for group in rank_groups)
+    team_count = len(_extract_team_rows(raw))
+    top_roles = []
+    for group in rank_groups:
+        for item in group.get("list") or []:
+            if isinstance(item, dict) and item.get("name"):
+                top_roles.append(f"{_clean_name(item.get('name'))} {_first_number(item.get('use_rate')):.1f}%")
+            if len(top_roles) >= 5:
+                break
+        if len(top_roles) >= 5:
+            break
     items = [
         ("有效样本", raw.get("top_own"), raw.get("tips")),
         ("满星率", raw.get("star36_rate"), "star36_rate"),
         ("一次满星率", raw.get("star36_once_rate"), "star36_once_rate"),
         ("平均重开次数", raw.get("restart_times_avg"), "restart_times_avg"),
         ("难度指数", raw.get("nandu"), "nandu"),
+        ("角色统计", role_count, rank_summary),
+        ("配队统计", team_count, "公开配队方案数量"),
+        ("热门角色", len(top_roles), " / ".join(top_roles)),
+        ("更新时间", raw.get("last_update"), raw.get("tips2") or name),
     ]
     rows: List[Dict[str, Any]] = []
     for idx, (row_name, value, detail) in enumerate(items, start=1):

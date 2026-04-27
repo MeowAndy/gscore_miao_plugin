@@ -2990,6 +2990,24 @@ def _format_stat_rate(rate: Any) -> str:
     return str(rate or "-")
 
 
+def _stat_rank_color(rank_class: Any) -> Tuple[int, int, int]:
+    key = str(rank_class or "").lower()
+    if key in {"s1", "ss", "s+"}:
+        return (255, 193, 96)
+    if key == "s":
+        return (255, 144, 144)
+    if key == "a":
+        return (177, 156, 255)
+    if key == "b":
+        return (122, 205, 255)
+    return (124, 226, 169)
+
+
+def _stat_raw_rank(row: Dict[str, Any]) -> str:
+    raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+    return str(raw.get("rank_name") or raw.get("rank_class") or "")
+
+
 def _split_pages(items: List[Any], page_size: int) -> List[List[Any]]:
     return [items[i:i + page_size] for i in range(0, len(items), page_size)] or [[]]
 
@@ -3052,6 +3070,7 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
     is_cons_stat = stat_kind in {"cons_dist", "cons5"}
     is_team_stat = stat_kind == "team"
     is_abyss_stat = stat_kind in {"abyss", "abyss_use", "abyss_own", "hard", "hard_use", "hard_own", "abyss_summary", "hard_summary"}
+    is_abyss_pct = stat_kind in {"abyss", "abyss_use", "abyss_own", "hard", "hard_use", "hard_own"}
     rate_font = _font(30, True, "NZBZ.ttf")
     card_width = 1280 if stat_kind == "cons_dist" else 1180 if is_team_stat else 1080
     card_right = card_width - 64
@@ -3062,13 +3081,21 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
         subtitle = f"共 {total} 条 · {source}数据 · 第 {page_index}/{len(pages)} 页"
         img, draw = _miao_card_base(title, subtitle, height=height, width=card_width)
         y = 196
+        if is_abyss_pct and page_index == 1:
+            label = "出场总数 / 持有该角色的记录数" if stat_kind.endswith("own") else "使用率：出场总数 / 持有该角色的记录数"
+            _rounded_r(draw, (64, 150, card_right, 182), 12, (14, 30, 50, 190), (80, 206, 255, 120), 1)
+            _text(draw, (86, 156), f"提瓦特小助手 API · {label} · 数据更新可能滞后，仅供参考", (180, 226, 255), FONT_TINY)
         for row in page_rows:
             rank = int(row.get("rank") or 0)
             name = str(row.get("name") or "未知")
             top = rank <= 3
+            raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+            rank_color_raw = _stat_rank_color(raw.get("rank_class") or raw.get("rank_name")) if is_abyss_pct else None
             fill = (42, 34, 24, 226) if top else (23, 32, 52, 218)
-            outline = (232, 186, 94, 230) if top else (76, 94, 132, 190)
+            outline = rank_color_raw if rank_color_raw else (232, 186, 94, 230) if top else (76, 94, 132, 190)
             _rounded_r(draw, (64, y, card_right, y + row_card_height), 20, fill, outline, 1)
+            if is_abyss_pct:
+                _rounded_r(draw, (64, y, 74, y + row_card_height), 5, outline, outline, 0)
             rank_color = (255, 218, 134) if top else (222, 230, 246)
             _text(draw, (88, y + 18), f"#{rank}", rank_color, FONT_HELP_CMD)
             face = _avatar_circle(_stat_face_path(name, game), 54)
@@ -3081,6 +3108,9 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
             fit_name, name_font = _fit_font_text(draw, name, name_limit, [FONT_CARD_TITLE, FONT_HELP_CMD, FONT_TEXT, FONT_SMALL], min_chars=3)
             _text(draw, (218, y + 8), fit_name, (255, 248, 232), name_font)
             sub_title = "深渊队伍统计" if is_team_stat else "深渊/幽境统计" if is_abyss_stat else "角色命座统计" if is_cons_stat else "角色持有统计"
+            if is_abyss_pct:
+                raw_rank = _stat_raw_rank(row)
+                sub_title = f"评级 {raw_rank} · 胡桃深渊榜单" if raw_rank else "胡桃深渊榜单"
             _text(draw, (218, y + 38), sub_title, (164, 178, 205), FONT_TINY)
             rate_x = 650 if is_team_stat else 520
             _text(draw, (rate_x, y + 13), _format_stat_rate(row.get("rate")), (255, 232, 155), rate_font)
@@ -3104,6 +3134,14 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
                     detail += str(row.get("cons")) if is_abyss_stat or is_team_stat else f"平均命座 {row.get('cons')}"
                 if row.get("count") not in (None, ""):
                     detail += f" · 样本 {row.get('count')}"
+            if is_team_stat:
+                raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+                roles = [r for r in raw.get("role") or [] if isinstance(r, dict)]
+                if roles:
+                    up_count = int(raw.get("up_use_num") or 0)
+                    down_count = int(raw.get("down_use_num") or 0)
+                    lane = "上半" if up_count >= down_count else "下半"
+                    _text(draw, (218, y + 38), f"推荐{lane} · 出场 {raw.get('use') or row.get('count') or '-'} 次", (164, 178, 205), FONT_TINY)
             detail_x = 800 if is_team_stat else 660
             detail_len = 28 if is_team_stat else 30
             _text(draw, (detail_x, y + 21), _fit_text(detail or "暂无更多数据", detail_len), (202, 214, 234), FONT_TEXT)
