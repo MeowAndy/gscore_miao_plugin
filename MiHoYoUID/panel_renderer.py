@@ -1674,7 +1674,18 @@ def _draw_section_title(draw: ImageDraw.ImageDraw, y: int, title: str, right: st
     else:
         _text(draw, (45, y + 10), title, (211, 188, 142), FONT_TEXT)
     if right:
-        _text(draw, (385, y + 12), right, (160, 160, 160), FONT_TINY)
+        score_box = (392, y + 6, 558, y + 38)
+        _rounded_r(draw, score_box, 10, (58, 45, 32), (232, 181, 90), 1)
+        score_text, score_font = _fit_font_text(draw, right, score_box[2] - score_box[0] - 22, [FONT_TEXT, FONT_SMALL, FONT_TINY], 6)
+        score_w = _text_width(draw, score_text, score_font)
+        _shadow_text(
+            draw,
+            (score_box[0] + (score_box[2] - score_box[0] - score_w) // 2, y + 10),
+            score_text,
+            (255, 232, 170),
+            score_font,
+            (30, 20, 12),
+        )
     return y + 54
 
 
