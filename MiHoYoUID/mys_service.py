@@ -147,6 +147,34 @@ async def fetch_starrail_roles(cookie: str) -> List[Dict[str, Any]]:
     return roles if isinstance(roles, list) else []
 
 
+async def fetch_genshin_record(cookie: str, uid: str, api: str, extra: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    url = f"https://api-takumi-record.mihoyo.com/game_record/app/genshin/api/{api}"
+    params: Dict[str, Any] = {"server": _server_id(uid), "role_id": uid}
+    if extra:
+        params.update(extra)
+    q = urlencode(params)
+    async with httpx.AsyncClient(timeout=_timeout()) as client:
+        resp = await client.get(url, params=params, headers=_headers(cookie, q))
+        resp.raise_for_status()
+        raw = resp.json()
+    if raw.get("retcode") not in (0, "0"):
+        raise RuntimeError(_message(raw))
+    data = raw.get("data") or {}
+    return data if isinstance(data, dict) else {}
+
+
+async def fetch_role_combat(cookie: str, uid: str, need_detail: bool = True) -> Dict[str, Any]:
+    return await fetch_genshin_record(cookie, uid, "role_combat", {"need_detail": str(bool(need_detail)).lower()})
+
+
+async def fetch_hard_challenge(cookie: str, uid: str) -> Dict[str, Any]:
+    return await fetch_genshin_record(cookie, uid, "hard_challenge")
+
+
+async def fetch_hard_challenge_popularity(cookie: str, uid: str) -> Dict[str, Any]:
+    return await fetch_genshin_record(cookie, uid, "hard_challenge_popularity")
+
+
 async def fetch_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/info"
     params = {"act_id": GENSHIN_SIGN_ACT_ID, "lang": "zh-cn", "region": _server_id(uid), "uid": uid}

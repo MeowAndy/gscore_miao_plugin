@@ -123,7 +123,7 @@ async def fetch_stat(kind: str, force: bool = False) -> Dict[str, Any]:
     if kind == "role_combat":
         return build_stat_placeholder(
             kind,
-            "幻想真境剧诗数据在 miao-plugin 中为米游社 CK 个人数据接口，需要绑定 Cookie 后调用；当前仅公开深渊/幽境统计接口可直接展示。",
+            "你的幻想真境剧诗数据为空。",
         )
     cached = None if force else _read_cache(kind)
     if cached:
@@ -361,6 +361,107 @@ def _normalize_overview_rows(payload: Dict[str, Any], limit: int, name: str) -> 
     return {**payload, "rows": rows[:limit], "total_rows": len(rows), "game": "gs"}
 
 
+def _pick_period(raw: Dict[str, Any], prefer_previous: bool = False) -> Dict[str, Any]:
+    data = raw.get("data") if isinstance(raw.get("data"), list) else None
+    if data:
+        idx = 1 if prefer_previous and len(data) > 1 else 0
+        item = data[idx]
+        return item if isinstance(item, dict) else {}
+    return raw
+
+
+def _normalize_role_combat_rows(payload: Dict[str, Any], limit: int) -> Dict[str, Any]:
+    raw = payload.get("raw") if isinstance(payload.get("raw"), dict) else {}
+    period = _pick_period(raw, bool(payload.get("previous")))
+    if not period or period.get("has_detail_data") is False:
+        return {**payload, "rows": [], "total_rows": 0, "message": "你的幻想真境剧诗数据为空。", "game": "gs"}
+    stat = period.get("stat") if isinstance(period.get("stat"), dict) else {}
+    detail = period.get("detail") if isinstance(period.get("detail"), dict) else {}
+    schedule = period.get("schedule") if isinstance(period.get("schedule"), dict) else {}
+    rounds = detail.get("rounds_data") if isinstance(detail.get("rounds_data"), list) else []
+    fight = detail.get("fight_statisic") if isinstance(detail.get("fight_statisic"), dict) else {}
+    rows: List[Dict[str, Any]] = []
+    items = [
+        ("挑战周期", schedule.get("start_date_time") or schedule.get("start_time") or "本期", schedule.get("end_date_time") or schedule.get("end_time") or ""),
+        ("最高难度", stat.get("difficulty_id") or stat.get("difficulty") or stat.get("max_round_id"), "幻想真境剧诗"),
+        ("获得星章", stat.get("get_medal_round_list") or stat.get("medal_num") or stat.get("medal_count"), "已获得的幕数/星章"),
+        ("辉彩祝福", stat.get("avatar_bonus_num"), "角色增益次数"),
+        ("幻剧之花", stat.get("coin_num"), "本期获得数量"),
+        ("助演次数", stat.get("rent_cnt"), "好友助演角色使用次数"),
+        ("总用时", fight.get("total_use_time") or stat.get("total_use_time"), "秒"),
+        ("幕数记录", len(rounds), "已获取详细幕数"),
+    ]
+    for idx, (row_name, value, detail_text) in enumerate(items, start=1):
+        if value in (None, "", []):
+            continue
+        if isinstance(value, list):
+            shown = "/".join(str(x) for x in value[:12]) or str(len(value))
+            score = len(value)
+        else:
+            shown = str(value)
+            score = _first_number(value) or max(1, len(items) - idx)
+        rows.append({"rank": idx, "name": row_name, "rate": shown, "count": "", "cons": detail_text, "score": score, "raw": period})
+    for round_item in rounds[:8]:
+        if not isinstance(round_item, dict):
+            continue
+        avatars = [str(x.get("name") or x.get("avatar_id") or "") for x in (round_item.get("avatars") or []) if isinstance(x, dict)]
+        rows.append({
+            "rank": len(rows) + 1,
+            "name": f"第 {round_item.get('round_id') or len(rows)} 幕",
+            "rate": "已获" if round_item.get("is_get_medal") else "-",
+            "count": "",
+            "cons": " / ".join([x for x in avatars if x]) or "暂无角色详情",
+            "score": 1,
+            "raw": round_item,
+        })
+    return {**payload, "rows": rows[:limit], "total_rows": len(rows), "game": "gs"}
+
+
+def _best_hard_record(period: Dict[str, Any]) -> Dict[str, Any]:
+    candidates = [x for x in (period.get("best"), period.get("single"), period.get("mp")) if isinstance(x, dict)]
+    candidates = [x for x in candidates if x.get("has_data") is not False]
+    if not candidates:
+        return {}
+    return sorted(candidates, key=lambda x: (_first_number(x.get("best", {}).get("difficulty") if isinstance(x.get("best"), dict) else x.get("difficulty")), -_first_number(x.get("best", {}).get("second") if isinstance(x.get("best"), dict) else x.get("second"))), reverse=True)[0]
+
+
+def _normalize_personal_hard_rows(payload: Dict[str, Any], limit: int) -> Dict[str, Any]:
+    raw = payload.get("raw") if isinstance(payload.get("raw"), dict) else {}
+    period = _pick_period(raw, bool(payload.get("previous")))
+    best_block = _best_hard_record(period)
+    best = best_block.get("best") if isinstance(best_block.get("best"), dict) else best_block
+    if not period or not best or best_block.get("has_data") is False:
+        return {**payload, "rows": [], "total_rows": 0, "message": "你的幽境危战数据为空。", "game": "gs"}
+    challenges = best_block.get("challenge") if isinstance(best_block.get("challenge"), list) else []
+    schedule = period.get("schedule") if isinstance(period.get("schedule"), dict) else {}
+    rows: List[Dict[str, Any]] = []
+    items = [
+        ("挑战周期", schedule.get("start_time") or "本期", schedule.get("end_time") or ""),
+        ("最高难度", best.get("difficulty"), "幽境危战"),
+        ("最佳用时", best.get("second"), "秒"),
+        ("挑战关卡", len(challenges), "已获取详细关卡"),
+    ]
+    for idx, (row_name, value, detail) in enumerate(items, start=1):
+        if value in (None, "", []):
+            continue
+        rows.append({"rank": idx, "name": row_name, "rate": str(value), "count": "", "cons": detail, "score": _first_number(value) or len(items) - idx, "raw": period})
+    for chall in challenges[:8]:
+        if not isinstance(chall, dict):
+            continue
+        teams = [str(x.get("name") or x.get("avatar_id") or "") for x in (chall.get("teams") or []) if isinstance(x, dict)]
+        monster = chall.get("monster") if isinstance(chall.get("monster"), dict) else {}
+        rows.append({
+            "rank": len(rows) + 1,
+            "name": str(chall.get("name") or monster.get("name") or "挑战记录"),
+            "rate": str(chall.get("second") or "-"),
+            "count": "",
+            "cons": " / ".join([x for x in teams if x]) or str(monster.get("name") or "暂无角色详情"),
+            "score": _first_number(chall.get("second")),
+            "raw": chall,
+        })
+    return {**payload, "rows": rows[:limit], "total_rows": len(rows), "game": "gs"}
+
+
 def _normalize_cons_rows(payload: Dict[str, Any], limit: int, mode: str = "hold", con_num: int = -1) -> Dict[str, Any]:
     raw = payload.get("raw")
     has_rows = raw.get("has_list") if isinstance(raw, dict) else []
@@ -426,7 +527,11 @@ def normalize_stat_rows(payload: Dict[str, Any], limit: int = 24) -> Dict[str, A
     if kind == "abyss_summary":
         return _normalize_overview_rows(payload, limit, "深渊数据")
     if kind == "hard_summary":
+        if payload.get("personal"):
+            return _normalize_personal_hard_rows(payload, limit)
         return _normalize_overview_rows(payload, limit, "幽境危战数据")
+    if kind == "role_combat":
+        return _normalize_role_combat_rows(payload, limit)
     raw = payload.get("raw")
     rows = _as_rows(raw)
     out: List[Dict[str, Any]] = []

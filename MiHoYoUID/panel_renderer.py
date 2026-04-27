@@ -3059,8 +3059,6 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
         if data.get("kind") == "sr_cons":
             lines.append("已拦截 MM崩铁角色持有率，避免被误识别为角色“角”面板。")
             lines.append("本地 miao-plugin 仅实现原神持有率；崩铁同源公开接口当前不可用。")
-        else:
-            lines.append("已按 miao-plugin 的胡桃/yshelper/lelaer 接口适配，接口异常会自动使用缓存。")
         return [await render_status_card(title, lines, "统计数据")]
     pages = _split_pages(rows, STAT_PAGE_SIZE)
     images: List[bytes] = []
@@ -3146,7 +3144,7 @@ async def render_stat_images(data: Dict[str, Any], title: str = "喵喵统计") 
             detail_len = 28 if is_team_stat else 30
             _text(draw, (detail_x, y + 21), _fit_text(detail or "暂无更多数据", detail_len), (202, 214, 234), FONT_TEXT)
             y += row_height
-        footer = "提示：队伍数据来自 yshelper 深渊配队公开统计，未绑定 CK 时不做个人角色排序。" if is_team_stat else "提示：统计数据来自 miao-plugin 同源公开接口，仅作参考。"
+        footer = "提示：队伍数据仅作参考。" if is_team_stat else "提示：数据仅作参考。"
         _text(draw, (64, height - 44), footer, (145, 160, 190), FONT_TINY)
         images.append(await convert_img(img))
     return images
