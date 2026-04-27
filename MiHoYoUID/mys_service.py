@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import json
 import random
 import re
@@ -27,6 +28,29 @@ STARRAIL_SIGN_ACT_ID = "e202304121516551"
 
 def _timeout() -> float:
     return float(MiaoConfig.get_config("PanelRequestTimeout").data or 15)
+
+
+def _http_timeout() -> httpx.Timeout:
+    timeout = _timeout()
+    return httpx.Timeout(timeout, connect=timeout, read=timeout, write=timeout, pool=timeout)
+
+
+async def _request_sign_json(method: str, url: str, **kwargs: Any) -> Dict[str, Any]:
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=_http_timeout()) as client:
+                resp = await client.request(method, url, **kwargs)
+                resp.raise_for_status()
+                return resp.json()
+        except (httpx.TimeoutException, httpx.NetworkError) as e:
+            last_error = e
+            if attempt >= 2:
+                raise
+            await asyncio.sleep(0.8 * (attempt + 1))
+    if last_error:
+        raise last_error
+    raise RuntimeError("米游社签到接口未返回数据")
 
 
 def normalize_cookie(text: str) -> str:
@@ -180,10 +204,7 @@ async def fetch_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/info"
     params = {"act_id": GENSHIN_SIGN_ACT_ID, "lang": "zh-cn", "region": _server_id(uid), "uid": uid}
     q = urlencode(params)
-    async with httpx.AsyncClient(timeout=_timeout()) as client:
-        resp = await client.get(url, params=params, headers=_sign_headers(cookie, q))
-        resp.raise_for_status()
-        raw = resp.json()
+    raw = await _request_sign_json("GET", url, params=params, headers=_sign_headers(cookie, q))
     if raw.get("retcode") not in (0, "0"):
         raise RuntimeError(_message(raw))
     return raw.get("data") or {}
@@ -193,10 +214,7 @@ async def fetch_starrail_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/info"
     params = {"act_id": STARRAIL_SIGN_ACT_ID, "lang": "zh-cn", "region": _starrail_server_id(uid), "uid": uid}
     q = urlencode(params)
-    async with httpx.AsyncClient(timeout=_timeout()) as client:
-        resp = await client.get(url, params=params, headers=_sign_headers(cookie, q, signgame="hkrpg"))
-        resp.raise_for_status()
-        raw = resp.json()
+    raw = await _request_sign_json("GET", url, params=params, headers=_sign_headers(cookie, q, signgame="hkrpg"))
     if raw.get("retcode") not in (0, "0"):
         raise RuntimeError(_message(raw))
     return raw.get("data") or {}
@@ -205,10 +223,7 @@ async def fetch_starrail_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
 async def daily_sign(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/sign"
     body = {"act_id": GENSHIN_SIGN_ACT_ID, "lang": "zh-cn", "region": _server_id(uid), "uid": uid}
-    async with httpx.AsyncClient(timeout=_timeout()) as client:
-        resp = await client.post(url, json=body, headers=_sign_headers(cookie, "", body))
-        resp.raise_for_status()
-        raw = resp.json()
+    raw = await _request_sign_json("POST", url, json=body, headers=_sign_headers(cookie, "", body))
     retcode = raw.get("retcode")
     if retcode not in (0, "0", -5003):
         raise RuntimeError(_message(raw))
@@ -218,10 +233,7 @@ async def daily_sign(cookie: str, uid: str) -> Dict[str, Any]:
 async def daily_sign_starrail(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/sign"
     body = {"act_id": STARRAIL_SIGN_ACT_ID, "lang": "zh-cn", "region": _starrail_server_id(uid), "uid": uid}
-    async with httpx.AsyncClient(timeout=_timeout()) as client:
-        resp = await client.post(url, json=body, headers=_sign_headers(cookie, "", body, signgame="hkrpg"))
-        resp.raise_for_status()
-        raw = resp.json()
+    raw = await _request_sign_json("POST", url, json=body, headers=_sign_headers(cookie, "", body, signgame="hkrpg"))
     retcode = raw.get("retcode")
     if retcode not in (0, "0", -5003):
         raise RuntimeError(_message(raw))
