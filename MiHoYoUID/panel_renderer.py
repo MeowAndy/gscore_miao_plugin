@@ -1205,14 +1205,27 @@ def _clean_effect_text(value: Any) -> str:
 
 
 def _weapon_effect_text(weapon: Dict[str, Any], name: str, refine: int) -> str:
-    detail_text = get_light_cone_effect(name, refine)
-    if detail_text:
-        return detail_text
+    if _weapon_game(weapon) == "sr":
+        detail_text = get_light_cone_effect(name, refine)
+        if detail_text:
+            return detail_text
     for key in ("desc", "description", "effect", "effect_desc", "skill", "skill_desc", "passive", "weapon_effect"):
         text = _clean_effect_text(weapon.get(key))
         if text:
             return text
     _, data = _weapon_meta(weapon)
+    affix = data.get("affixData") if isinstance(data.get("affixData"), dict) else {}
+    affix_text = _clean_effect_text(affix.get("text")) if affix else ""
+    affix_datas = affix.get("datas") if isinstance(affix.get("datas"), dict) else {}
+    if affix_text and isinstance(affix_datas, dict):
+        idx = max(0, min(int(refine or 1), 5) - 1)
+        for key, values in affix_datas.items():
+            if isinstance(values, list) and values:
+                value = values[idx] if idx < len(values) else values[-1]
+                affix_text = affix_text.replace(f"$[{key}]", str(value))
+        affix_text = affix_text.replace("$[", "").replace("]", "")
+        title = _clean_effect_text(data.get("affixTitle"))
+        return f"{title}：{affix_text}" if title else affix_text
     for key in ("desc", "description", "effect", "skill", "skill_desc"):
         text = _clean_effect_text(data.get(key))
         if text:
@@ -1711,66 +1724,47 @@ def _draw_weapon(img: Image.Image, draw: ImageDraw.ImageDraw, y: int, char: Dict
     weapon = char.get("weapon") or {}
     if not isinstance(weapon, dict):
         weapon = {}
-    if is_sr:
-        weapon = dict(weapon)
-        weapon.setdefault("game", "sr")
+    weapon = dict(weapon)
+    weapon.setdefault("game", "sr" if is_sr else "gs")
     rarity = int(weapon.get("rarity") or 5)
     y = _draw_section_title(draw, y, "光锥" if is_sr else "武器", center=True)
     name = _weapon_name(weapon)
     refine = _weapon_refine_value(weapon)
-    if is_sr:
-        card_h = 220
-        _rounded_r(draw, (25, y, 575, y + card_h), 12, (38, 37, 42), (92, 81, 62), 1)
-        draw.rounded_rectangle((42, y + 20, 120, y + 98), radius=12, fill=_star_color(rarity))
-        icon = _open_image(_weapon_icon(weapon), (74, 74), contain=True)
-        if icon:
-            _paste(img, icon, (44, y + 22))
-        else:
-            _text(draw, (68, y + 42), "锥", (255, 247, 230), FONT_CARD_TITLE)
-        title, title_font = _fit_font_text(draw, name, 172, [FONT_CARD_TITLE, FONT_TEXT, FONT_SMALL], min_chars=5)
-        _text(draw, (134, y + 18), title, (245, 228, 183), title_font)
-        _text(draw, (136, y + 54), f"叠影{refine}阶  Lv.{_safe(weapon.get('level'), '?')}  {'★' * min(rarity, 5)}", (226, 226, 226), FONT_SMALL)
-        attrs = _weapon_main_attr_items(weapon)
-        for idx, (label, value) in enumerate(attrs):
-            row = idx
-            ay = y + 84 + row * 24
-            attr_box = (136, ay, 304, ay + 20)
-            draw.rounded_rectangle(attr_box, radius=7, fill=(32, 32, 37), outline=(70, 64, 54), width=1)
-            label_fit, label_font = _fit_font_text(draw, str(label), 62, [FONT_TINY, FONT_LIGHT_CONE_EFFECT_SMALL], min_chars=2)
-            value_fit, value_font = _fit_font_text(draw, f"+{value}", 82, [FONT_TINY, FONT_LIGHT_CONE_EFFECT_SMALL], min_chars=2)
-            _text(draw, (attr_box[0] + 8, attr_box[1] + 3), label_fit, (178, 184, 196), label_font)
-            _text(draw, (attr_box[2] - 8 - _text_width(draw, value_fit, value_font), attr_box[1] + 3), value_fit, (255, 232, 170), value_font)
-        effect_box = (322, y + 18, 558, y + 202)
-        draw.rounded_rectangle(effect_box, radius=10, fill=(31, 31, 36), outline=(82, 73, 58), width=1)
-        _text(draw, (effect_box[0] + 12, effect_box[1] + 9), "光锥效果", (255, 205, 116), FONT_SMALL)
-        effect = _weapon_effect_text(weapon, name, refine) or "效果数据待补充"
-        lines, font, line_h = _fit_multiline_text(
-            draw,
-            effect,
-            effect_box[2] - effect_box[0] - 24,
-            effect_box[3] - effect_box[1] - 42,
-            [FONT_LIGHT_CONE_EFFECT, FONT_LIGHT_CONE_EFFECT_SMALL, FONT_LIGHT_CONE_EFFECT_TINY, FONT_LIGHT_CONE_EFFECT_MINI],
-            line_gap=1,
-        )
-        _draw_lines(draw, (effect_box[0] + 12, effect_box[1] + 35), lines, (222, 224, 230), font, line_h, line_gap=1)
-        return y + card_h + 16
-    _rounded_r(draw, (25, y, 575, y + 144), 12, (38, 37, 42), (92, 81, 62), 1)
-    draw.rounded_rectangle((42, y + 18, 118, y + 94), radius=12, fill=_star_color(rarity))
-    icon = _open_image(_weapon_icon(weapon), (72, 72), contain=True)
+    card_h = 220
+    _rounded_r(draw, (25, y, 575, y + card_h), 12, (38, 37, 42), (92, 81, 62), 1)
+    draw.rounded_rectangle((42, y + 20, 120, y + 98), radius=12, fill=_star_color(rarity))
+    icon = _open_image(_weapon_icon(weapon), (74, 74), contain=True)
     if icon:
-        _paste(img, icon, (44, y + 20))
+        _paste(img, icon, (44, y + 22))
     else:
-        _text(draw, (66, y + 40), "武", (255, 247, 230), FONT_CARD_TITLE)
-    _text(draw, (134, y + 18), _fit_text(name, 13), (245, 228, 183), FONT_CARD_TITLE)
-    _text(draw, (136, y + 58), f"精{_safe(refine, '1')}  Lv.{_safe(weapon.get('level'), '?')}  {'★' * min(rarity, 5)}", (226, 226, 226), FONT_SMALL)
-    attrs = _weapon_attr_items(weapon)
+        _text(draw, (68, y + 42), "锥" if is_sr else "武", (255, 247, 230), FONT_CARD_TITLE)
+    title, title_font = _fit_font_text(draw, name, 172, [FONT_CARD_TITLE, FONT_TEXT, FONT_SMALL], min_chars=5)
+    _text(draw, (134, y + 18), title, (245, 228, 183), title_font)
+    refine_label = f"叠影{refine}阶" if is_sr else f"精{_safe(refine, '1')}"
+    _text(draw, (136, y + 54), f"{refine_label}  Lv.{_safe(weapon.get('level'), '?')}  {'★' * min(rarity, 5)}", (226, 226, 226), FONT_SMALL)
+    attrs = _weapon_main_attr_items(weapon)
     for idx, (label, value) in enumerate(attrs):
-        col = idx % 2
-        row = idx // 2
-        ax = 136 + col * 170
-        ay = y + 90 + row * 24
-        _text(draw, (ax, ay), f"{label} +{value}", (206, 210, 220), FONT_TINY)
-    return y + 160
+        ay = y + 84 + idx * 24
+        attr_box = (136, ay, 304, ay + 20)
+        draw.rounded_rectangle(attr_box, radius=7, fill=(32, 32, 37), outline=(70, 64, 54), width=1)
+        label_fit, label_font = _fit_font_text(draw, str(label), 62, [FONT_TINY, FONT_LIGHT_CONE_EFFECT_SMALL], min_chars=2)
+        value_fit, value_font = _fit_font_text(draw, f"+{value}", 82, [FONT_TINY, FONT_LIGHT_CONE_EFFECT_SMALL], min_chars=2)
+        _text(draw, (attr_box[0] + 8, attr_box[1] + 3), label_fit, (178, 184, 196), label_font)
+        _text(draw, (attr_box[2] - 8 - _text_width(draw, value_fit, value_font), attr_box[1] + 3), value_fit, (255, 232, 170), value_font)
+    effect_box = (322, y + 18, 558, y + 202)
+    draw.rounded_rectangle(effect_box, radius=10, fill=(31, 31, 36), outline=(82, 73, 58), width=1)
+    _text(draw, (effect_box[0] + 12, effect_box[1] + 9), "光锥效果" if is_sr else "武器效果", (255, 205, 116), FONT_SMALL)
+    effect = _weapon_effect_text(weapon, name, refine) or "效果数据待补充"
+    lines, font, line_h = _fit_multiline_text(
+        draw,
+        effect,
+        effect_box[2] - effect_box[0] - 24,
+        effect_box[3] - effect_box[1] - 42,
+        [FONT_LIGHT_CONE_EFFECT, FONT_LIGHT_CONE_EFFECT_SMALL, FONT_LIGHT_CONE_EFFECT_TINY, FONT_LIGHT_CONE_EFFECT_MINI],
+        line_gap=1,
+    )
+    _draw_lines(draw, (effect_box[0] + 12, effect_box[1] + 35), lines, (222, 224, 230), font, line_h, line_gap=1)
+    return y + card_h + 16
 
 
 def _reliq_label(index: int, is_sr: bool = False) -> str:
