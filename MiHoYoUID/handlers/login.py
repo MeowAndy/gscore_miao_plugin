@@ -131,7 +131,14 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
 
     for gs_uid in gs_uids:
         try:
-            before = await fetch_sign_info(cookie, gs_uid)
+            before: dict = {}
+            try:
+                before = await fetch_sign_info(cookie, gs_uid)
+            except Exception as e:
+                if _is_timeout_error(e):
+                    logger.warning(f"[喵喵签到] 原神 {gs_uid} 签到前状态查询超时，跳过预查询直接签到")
+                else:
+                    raise
             signed = bool(before.get("is_sign"))
             raw = await daily_sign(cookie, gs_uid) if not signed else {"message": "OK", "retcode": -5003}
             try:
@@ -139,7 +146,7 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
             except Exception as e:
                 if raw.get("retcode") in (0, "0", -5003) and _is_timeout_error(e):
                     logger.warning(f"[喵喵签到] 原神 {gs_uid} 签到后状态刷新超时，按签到请求结果统计成功")
-                    after = before
+                    after = before or {}
                 else:
                     raise
             total = after.get("total_sign_day") or before.get("total_sign_day") or "?"
@@ -152,7 +159,14 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
 
     for sr_uid in sr_uids:
         try:
-            before = await fetch_starrail_sign_info(cookie, sr_uid)
+            before = {}
+            try:
+                before = await fetch_starrail_sign_info(cookie, sr_uid)
+            except Exception as e:
+                if _is_timeout_error(e):
+                    logger.warning(f"[喵喵签到] 崩铁 {sr_uid} 签到前状态查询超时，跳过预查询直接签到")
+                else:
+                    raise
             signed = bool(before.get("is_sign"))
             raw = await daily_sign_starrail(cookie, sr_uid) if not signed else {"message": "OK", "retcode": -5003}
             try:
@@ -160,7 +174,7 @@ async def run_daily_sign_for_cfg(cfg: dict, specified_uid: str = "") -> tuple[li
             except Exception as e:
                 if raw.get("retcode") in (0, "0", -5003) and _is_timeout_error(e):
                     logger.warning(f"[喵喵签到] 崩铁 {sr_uid} 签到后状态刷新超时，按签到请求结果统计成功")
-                    after = before
+                    after = before or {}
                 else:
                     raise
             total = after.get("total_sign_day") or before.get("total_sign_day") or "?"

@@ -35,9 +35,10 @@ def _http_timeout() -> httpx.Timeout:
     return httpx.Timeout(timeout, connect=timeout, read=timeout, write=timeout, pool=timeout)
 
 
-async def _request_sign_json(method: str, url: str, **kwargs: Any) -> Dict[str, Any]:
+async def _request_sign_json(method: str, url: str, retries: int = 3, **kwargs: Any) -> Dict[str, Any]:
     last_error: Exception | None = None
-    for attempt in range(3):
+    retries = max(1, retries)
+    for attempt in range(retries):
         try:
             async with httpx.AsyncClient(timeout=_http_timeout()) as client:
                 resp = await client.request(method, url, **kwargs)
@@ -45,7 +46,7 @@ async def _request_sign_json(method: str, url: str, **kwargs: Any) -> Dict[str, 
                 return resp.json()
         except (httpx.TimeoutException, httpx.NetworkError) as e:
             last_error = e
-            if attempt >= 2:
+            if attempt >= retries - 1:
                 raise
             await asyncio.sleep(0.8 * (attempt + 1))
     if last_error:
@@ -204,7 +205,7 @@ async def fetch_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/info"
     params = {"act_id": GENSHIN_SIGN_ACT_ID, "lang": "zh-cn", "region": _server_id(uid), "uid": uid}
     q = urlencode(params)
-    raw = await _request_sign_json("GET", url, params=params, headers=_sign_headers(cookie, q))
+    raw = await _request_sign_json("GET", url, retries=1, params=params, headers=_sign_headers(cookie, q))
     if raw.get("retcode") not in (0, "0"):
         raise RuntimeError(_message(raw))
     return raw.get("data") or {}
@@ -214,7 +215,7 @@ async def fetch_starrail_sign_info(cookie: str, uid: str) -> Dict[str, Any]:
     url = "https://api-takumi.mihoyo.com/event/luna/info"
     params = {"act_id": STARRAIL_SIGN_ACT_ID, "lang": "zh-cn", "region": _starrail_server_id(uid), "uid": uid}
     q = urlencode(params)
-    raw = await _request_sign_json("GET", url, params=params, headers=_sign_headers(cookie, q, signgame="hkrpg"))
+    raw = await _request_sign_json("GET", url, retries=1, params=params, headers=_sign_headers(cookie, q, signgame="hkrpg"))
     if raw.get("retcode") not in (0, "0"):
         raise RuntimeError(_message(raw))
     return raw.get("data") or {}
