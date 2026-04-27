@@ -148,7 +148,8 @@ async def fetch_starrail_roles(cookie: str) -> List[Dict[str, Any]]:
 
 
 async def fetch_genshin_record(cookie: str, uid: str, api: str, extra: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    url = f"https://api-takumi-record.mihoyo.com/game_record/app/genshin/api/{api}"
+    base_url = str(MiaoConfig.get_config("MysApiBaseUrl").data or "").strip().rstrip("/")
+    url = f"{base_url}/game_record/app/genshin/api/{api}"
     params: Dict[str, Any] = {"server": _server_id(uid), "role_id": uid}
     if extra:
         params.update(extra)

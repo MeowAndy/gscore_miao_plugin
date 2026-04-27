@@ -8,12 +8,15 @@ from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
 from ..calendar_service import fetch_calendar
+from ..config import MiaoConfig
 from ..panel_renderer import render_calendar_images
 
 sv_calendar = SV("GsCoreMiao活动日历")
 
 
 async def _send_calendar(bot: Bot, ev: Event, game: str, list_mode: bool) -> None:
+    if not MiaoConfig.get_config("EnableActivityCalendar").data:
+        return
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     try:

@@ -5,6 +5,7 @@ from gsuid_core.models import Event
 from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
+from ..config import MiaoConfig
 from ..material_service import build_today_material
 from ..panel_renderer import render_material_image
 
@@ -84,6 +85,8 @@ async def send_today_material(bot: Bot, ev: Event):
 
 
 async def _send_today_material(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnableMaterialCalendar").data:
+        return
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     text = getattr(ev, "raw_text", "") or ""

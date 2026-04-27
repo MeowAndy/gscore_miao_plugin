@@ -8,9 +8,6 @@ import httpx
 
 from .config import MiaoConfig
 
-GENSHIN_LIST_API = "https://hk4e-api.mihoyo.com/common/hk4e_cn/announcement/api/getAnnList"
-STARRAIL_LIST_API = "https://hkrpg-api.mihoyo.com/common/hkrpg_cn/announcement/api/getAnnList"
-
 _IGNORE_RE = re.compile(
     r"更新概览|游戏优化|优化说明|内容专题页|专题展示页|版本更新说明|调研|防沉迷|米游社|专项意见|"
     r"更新修复与优化|问卷调查|版本更新通知|更新时间说明|预下载功能|周边限时|周边上新|"
@@ -136,7 +133,7 @@ def _build_items(raw: Dict[str, Any], game: str, list_mode: bool) -> List[Dict[s
 async def fetch_calendar(game: str = "sr", list_mode: bool = False) -> Dict[str, Any]:
     game = "gs" if game in {"gs", "genshin", "原神"} else "sr"
     if game == "gs":
-        url = GENSHIN_LIST_API
+        url = str(MiaoConfig.get_config("GenshinCalendarApiUrl").data or "").strip()
         params = {
             "game": "hk4e",
             "game_biz": "hk4e_cn",
@@ -148,7 +145,7 @@ async def fetch_calendar(game: str = "sr", list_mode: bool = False) -> Dict[str,
             "uid": "100000000",
         }
     else:
-        url = STARRAIL_LIST_API
+        url = str(MiaoConfig.get_config("StarRailCalendarApiUrl").data or "").strip()
         params = {
             "game": "hkrpg",
             "game_biz": "hkrpg_cn",

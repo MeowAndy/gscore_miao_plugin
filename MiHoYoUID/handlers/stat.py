@@ -6,6 +6,7 @@ from gsuid_core.segment import MessageSegment
 from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
+from ..config import MiaoConfig
 from ..mys_service import fetch_hard_challenge, fetch_role_combat
 from ..panel_renderer import render_stat_images
 from ..stat_service import (build_stat_placeholder, fetch_stat,
@@ -74,6 +75,8 @@ async def send_public_stat_fullmatch(bot: Bot, ev: Event):
 
 @sv_stat.on_fullmatch(SR_OWNERSHIP_COMMANDS + PREFIXED_SR_OWNERSHIP_COMMANDS, block=True)
 async def send_sr_ownership_unavailable(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnablePublicStat").data:
+        return
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     return await bot.send("崩铁目前没有做角色持有量排行，暂不支持该指令。")
@@ -109,6 +112,8 @@ async def _send_public_stat(bot: Bot, ev: Event):
     text = (ev.regex_dict or {}).get("cmd") or getattr(ev, "raw_text", "") or ""
     kind, title = _kind_title(text)
     if kind in {"role_combat", "hard_summary"}:
+        if not MiaoConfig.get_config("EnablePersonalChallengeStat").data:
+            return
         cfg = await get_user_cfg(ev.user_id, ev.bot_id)
         if not str(cfg.get("mys_cookie") or ""):
             return await bot.send(f"请绑定CK后再使用{title}。")
@@ -136,6 +141,8 @@ async def _send_public_stat(bot: Bot, ev: Event):
             for image in images:
                 await bot.send(image)
             return
+    if not MiaoConfig.get_config("EnablePublicStat").data:
+        return
     try:
         payload = await fetch_stat(kind)
         data = normalize_stat_rows(payload, limit=999)

@@ -83,7 +83,37 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "EnableDamageCalc": GsBoolConfig(
         "开启伤害计算",
-        "关闭后将不响应 伤害计算 指令",
+        "控制原神/崩铁伤害计算、伤害估算和 miao 风格 角色伤害 指令；关闭后相关指令不响应。",
+        True,
+    ),
+    "EnableWikiQuery": GsBoolConfig(
+        "开启角色图鉴",
+        "控制角色资料、天赋/技能、命座/星魂、材料/素材、养成等图鉴查询；关闭后图鉴类指令不响应。",
+        True,
+    ),
+    "EnableMaterialCalendar": GsBoolConfig(
+        "开启今日素材",
+        "控制 今日素材、每日材料、周几素材、明日材料 等原神素材日历指令；关闭后相关指令不响应。",
+        True,
+    ),
+    "EnableActivityCalendar": GsBoolConfig(
+        "开启活动日历",
+        "控制 原神日历、原神活动、崩铁日历、星铁活动 等公告日历指令；关闭后相关指令不响应。",
+        True,
+    ),
+    "EnableGachaStat": GsBoolConfig(
+        "开启抽卡统计",
+        "控制原神/崩铁抽卡记录导入、抽卡统计、祈愿统计、抽卡分析等本地抽卡记录功能。",
+        True,
+    ),
+    "EnablePublicStat": GsBoolConfig(
+        "开启公开统计",
+        "控制角色持有率、命座统计、深渊出场/使用/配队/数据、幽境危战出场率/使用率等公开统计指令。",
+        True,
+    ),
+    "EnablePersonalChallengeStat": GsBoolConfig(
+        "开启个人挑战统计",
+        "控制需要用户绑定 CK 的 幽境危战数据、幻想真境剧诗数据 等米游社个人挑战统计指令。",
         True,
     ),
     "EnableMysLogin": GsBoolConfig(
@@ -198,6 +228,41 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "米游社DS Salt",
         "留空使用内置盐；米游社接口变更时可在此覆盖",
         "",
+    ),
+    "GenshinCalendarApiUrl": GsStrConfig(
+        "原神日历接口",
+        "原神活动/祈愿公告列表接口地址；用于 原神日历、原神活动，可替换为兼容代理。",
+        "https://hk4e-api.mihoyo.com/common/hk4e_cn/announcement/api/getAnnList",
+    ),
+    "StarRailCalendarApiUrl": GsStrConfig(
+        "崩铁日历接口",
+        "崩铁/星铁活动与跃迁公告列表接口地址；用于 崩铁日历、星铁活动，可替换为兼容代理。",
+        "https://hkrpg-api.mihoyo.com/common/hkrpg_cn/announcement/api/getAnnList",
+    ),
+    "StatYshelperApiUrl": GsStrConfig(
+        "深渊统计接口",
+        "yshelper 深渊公开统计接口；用于深渊出场率、使用率、配队、深渊数据和部分持有率补充。",
+        "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
+    ),
+    "StatLelaerRoleApiUrl": GsStrConfig(
+        "角色持有统计接口",
+        "lelaer 角色持有率/命座统计接口；用于原神角色持有率、角色命座统计、角色5命统计。",
+        "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
+    ),
+    "StatLelaerHardApiUrl": GsStrConfig(
+        "幽境危战统计接口",
+        "lelaer 幽境危战公开统计接口；用于幽境危战出场率、使用率和公开数据兜底。",
+        "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
+    ),
+    "GenshinGachaApiUrl": GsStrConfig(
+        "原神抽卡接口",
+        "原神祈愿历史 getGachaLog 接口；用于通过 authkey 链接导入原神抽卡记录。",
+        "https://hk4e-api.mihoyo.com/event/gacha_info/api/getGachaLog",
+    ),
+    "StarRailGachaApiUrl": GsStrConfig(
+        "崩铁抽卡接口",
+        "崩铁/星铁跃迁历史 getGachaLog 接口；用于通过 authkey 链接导入崩铁抽卡记录。",
+        "https://api-takumi.mihoyo.com/common/gacha_record/api/getGachaLog",
     ),
     "MggApiBaseUrl": GsStrConfig(
         "Mgg API地址",

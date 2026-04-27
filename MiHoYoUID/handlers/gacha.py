@@ -8,6 +8,7 @@ from gsuid_core.models import Event
 from gsuid_core.sv import SV
 
 from ..auth import can_use_plugin
+from ..config import MiaoConfig
 from ..gacha_service import (analyze_gacha, extract_uid, import_gacha_authkey,
                              import_gacha_json)
 from ..panel_renderer import render_gacha_image
@@ -148,16 +149,22 @@ PREFIXED_GACHA_COMMAND_PREFIXES = tuple(f"{cmd} " for cmd in PREFIXED_GACHA_COMM
 
 @sv_gacha.on_fullmatch(("导入原神抽卡记录帮助", "原神抽卡记录导入帮助", "原神抽卡帮助"), block=True)
 async def send_gacha_import_help(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnableGachaStat").data:
+        return
     await bot.send(_import_help("gs"))
 
 
 @sv_gacha.on_fullmatch(("导入崩铁抽卡记录帮助", "导入星铁抽卡记录帮助", "崩铁抽卡记录导入帮助", "星铁抽卡记录导入帮助", "崩铁抽卡帮助", "星铁抽卡帮助"), block=True)
 async def send_sr_gacha_import_help(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnableGachaStat").data:
+        return
     await bot.send(_import_help("sr"))
 
 
 @sv_gacha.on_regex(r"^(?:喵喵|miao|MM)?导入(?P<game>原神|崩铁|星铁)抽卡记录(?!帮助)\s*(?P<payload>.*)$", block=True)
 async def send_gacha_import(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnableGachaStat").data:
+        return
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     text = getattr(ev, "raw_text", "") or ""
@@ -201,6 +208,8 @@ async def send_gacha_stat_prefix_uid(bot: Bot, ev: Event):
 
 
 async def _send_gacha_stat(bot: Bot, ev: Event):
+    if not MiaoConfig.get_config("EnableGachaStat").data:
+        return
     if not can_use_plugin(ev):
         return await bot.send("当前配置禁止游客使用，仅管理员可调用该指令")
     data = ev.regex_dict or {}

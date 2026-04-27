@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List
 
 import httpx
 
+from .config import MiaoConfig
 from .path import MAIN_PATH
 
 POOL_MAP_GS = {
@@ -21,8 +22,6 @@ POOL_MAP_SR = {
     "光锥": ["12"],
     "常驻": ["1", "2"],
 }
-GACHA_API_URL = "https://hk4e-api.mihoyo.com/event/gacha_info/api/getGachaLog"
-SR_GACHA_API_URL = "https://api-takumi.mihoyo.com/common/gacha_record/api/getGachaLog"
 POOL_ALIASES_GS = {"301": "301", "400": "301", "302": "302", "200": "200", "500": "500"}
 POOL_ALIASES_SR = {"11": "11", "12": "12", "1": "1", "2": "1"}
 
@@ -222,7 +221,8 @@ def import_gacha_json(game: str, user_id: str, uid: str, raw: Any) -> Dict[str, 
 async def import_gacha_authkey(game: str, user_id: str, uid: str, url: str) -> Dict[str, Any]:
     game = "sr" if game in {"sr", "starrail", "hkrpg"} else "gs"
     pools = ["11", "12", "1"] if game == "sr" else ["301", "302", "200", "500"]
-    api_url = SR_GACHA_API_URL if game == "sr" else GACHA_API_URL
+    api_key = "StarRailGachaApiUrl" if game == "sr" else "GenshinGachaApiUrl"
+    api_url = str(MiaoConfig.get_config(api_key).data or "").strip()
     base_params = dict(httpx.URL(url).params)
     if not base_params.get("authkey"):
         return {"ok": False, "message": "链接中未找到 authkey，请发送游戏内祈愿/跃迁历史记录链接。"}

@@ -16,21 +16,26 @@ CACHE_VERSION = 5
 COMMON_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 ABYSS_RANK_NAMES = {"S+", "S", "A", "B", "C"}
 
-URLS = {
-    "cons": "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
-    "cons_dist": "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
-    "cons5": "https://api.lelaer.com/ys/getRoleAvg.php?star=all&lang=zh-Hans",
-    "abyss": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
-    "abyss_use": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
-    "abyss_own": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
-    "abyss_summary": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
-    "hard": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
-    "hard_use": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
-    "hard_own": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
-    "hard_summary": "https://api.lelaer.com/ys/getAbyssRank2.php?star=all&role=all&lang=zh-Hans",
-    "team": "https://api.yshelper.com/ys/getAbyssRank.php?star=all&role=all&lang=zh-Hans",
+URL_CONFIG_KEYS = {
+    "cons": "StatLelaerRoleApiUrl",
+    "cons_dist": "StatLelaerRoleApiUrl",
+    "cons5": "StatLelaerRoleApiUrl",
+    "abyss": "StatYshelperApiUrl",
+    "abyss_use": "StatYshelperApiUrl",
+    "abyss_own": "StatYshelperApiUrl",
+    "abyss_summary": "StatYshelperApiUrl",
+    "hard": "StatLelaerHardApiUrl",
+    "hard_use": "StatLelaerHardApiUrl",
+    "hard_own": "StatLelaerHardApiUrl",
+    "hard_summary": "StatLelaerHardApiUrl",
+    "team": "StatYshelperApiUrl",
     "role_combat": "",
 }
+
+
+def _stat_url(kind: str) -> str:
+    key = URL_CONFIG_KEYS.get(kind, "StatYshelperApiUrl")
+    return str(MiaoConfig.get_config(key).data or "").strip() if key else ""
 
 
 def _timeout() -> float:
@@ -93,12 +98,12 @@ async def _fetch_cons_stat(client: httpx.AsyncClient) -> Dict[str, Any]:
     lelaer: Dict[str, Any] = {}
     lelaer_error = ""
     try:
-        lelaer_raw = await _fetch_json(client, URLS["cons"])
+        lelaer_raw = await _fetch_json(client, _stat_url("cons"))
         lelaer = lelaer_raw if isinstance(lelaer_raw, dict) else {}
     except Exception as e:
         lelaer_error = str(e)
     try:
-        abyss_raw = await _fetch_json(client, URLS["abyss"])
+        abyss_raw = await _fetch_json(client, _stat_url("abyss"))
         abyss = abyss_raw if isinstance(abyss_raw, dict) else {}
     except Exception as e:
         if lelaer_error:
@@ -119,7 +124,7 @@ async def _fetch_cons_stat(client: httpx.AsyncClient) -> Dict[str, Any]:
 
 
 async def fetch_stat(kind: str, force: bool = False) -> Dict[str, Any]:
-    kind = kind if kind in URLS else "abyss"
+    kind = kind if kind in URL_CONFIG_KEYS else "abyss"
     if kind == "role_combat":
         return build_stat_placeholder(
             kind,
@@ -131,7 +136,7 @@ async def fetch_stat(kind: str, force: bool = False) -> Dict[str, Any]:
         return cached
     try:
         async with httpx.AsyncClient(timeout=_timeout(), follow_redirects=True) as client:
-            raw = await _fetch_cons_stat(client) if kind in {"cons", "cons_dist", "cons5"} else await _fetch_json(client, URLS[kind])
+            raw = await _fetch_cons_stat(client) if kind in {"cons", "cons_dist", "cons5"} else await _fetch_json(client, _stat_url(kind))
     except Exception:
         cached = _read_cache(kind, ttl=86400 * 14)
         if cached:
