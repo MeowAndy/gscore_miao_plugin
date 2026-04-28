@@ -865,7 +865,7 @@ def _exception_message(exc: Exception) -> str:
 
 
 def _mys_headers(cookie: str, q: str = "", b: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
-    device_id = str(MiaoConfig.get_config("MysDeviceId").data or uuid.uuid4()).lower()
+    device_id = str(MiaoConfig.get_config("MysDeviceId").data or "").strip().lower()
     device_fp = str(MiaoConfig.get_config("MysDeviceFp").data or "").strip()
     app_version = str(MiaoConfig.get_config("MysAppVersion").data or "2.102.1")
     client_type = str(MiaoConfig.get_config("MysClientType").data or "5")
@@ -881,11 +881,12 @@ def _mys_headers(cookie: str, q: str = "", b: Optional[Dict[str, Any]] = None) -
         "DS": _mys_ds(q, b),
         "x-rpc-app_version": app_version,
         "x-rpc-client_type": client_type,
-        "x-rpc-device_id": device_id,
         "X-Requested-With": "com.mihoyo.hyperion",
         "Referer": "https://webstatic.mihoyo.com/",
         "Origin": "https://webstatic.mihoyo.com/",
     }
+    if device_id:
+        headers["x-rpc-device_id"] = device_id
     if device_fp:
         headers["x-rpc-device_fp"] = device_fp
     return headers
@@ -902,20 +903,24 @@ async def _fill_gscore_device_headers(headers: Dict[str, str], uid: str, game: s
             ),
             timeout=5,
         )
-        if device_id and not headers.get("x-rpc-device_id"):
+        if device_id:
             headers["x-rpc-device_id"] = str(device_id)
-        if device_fp and not headers.get("x-rpc-device_fp"):
+        if device_fp:
             headers["x-rpc-device_fp"] = str(device_fp)
     except (asyncio.TimeoutError, TimeoutError):
         pass
     except Exception:
         pass
+    if not headers.get("x-rpc-device_id"):
+        headers["x-rpc-device_id"] = str(uuid.uuid4()).lower()
     return headers
 
 
 def _check_retcode(source: str, raw: Dict[str, Any]) -> None:
     retcode = raw.get("retcode", raw.get("code", 0))
     if retcode not in (0, "0", None):
+        if _is_mys_dead_code(raw):
+            raise PanelSourceError(source, _mys_code_message(retcode))
         msg = raw.get("message") or raw.get("msg") or raw.get("error") or "未知错误"
         raise PanelSourceError(source, f"接口返回 {retcode}: {msg}")
 
@@ -932,17 +937,24 @@ def _mys_code_message(code: Any) -> str:
     messages = {
         -51: "米游社 Cookie 未配置或不可用",
         -999: "米游社风控验证失败，请稍后重试或检查 Cookie/设备指纹",
+        10035: "米游社风控验证失败，请稍后重试或检查 Cookie/设备指纹",
+        "10035": "米游社风控验证失败，请稍后重试或检查 Cookie/设备指纹",
         1034: "米游社风控验证失败，请稍后重试或检查 Cookie/设备指纹",
         "1034": "米游社风控验证失败，请稍后重试或检查 Cookie/设备指纹",
     }
     return messages.get(code, f"接口返回 {code}")
 
 
-def _add_mys_challenge_headers(headers: Dict[str, str], q: str = "", b: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+def _add_mys_challenge_headers(headers: Dict[str, str], q: str = "", b: Optional[Dict[str, Any]] = None, game: str = "gs") -> Dict[str, str]:
     fixed = dict(headers)
-    fixed["x-rpc-challenge_game"] = "2"
-    fixed["x-rpc-page"] = "v4.1.5-ys_#ys"
-    fixed["x-rpc-tool-verison"] = "v4.1.5-ys"
+    if game in {"sr", "starrail", "hkrpg"}:
+        fixed["x-rpc-challenge_game"] = "6"
+        fixed["x-rpc-page"] = "v1.4.1-rpg_#/rpg"
+        fixed["x-rpc-tool-verison"] = "v1.4.1-rpg"
+    else:
+        fixed["x-rpc-challenge_game"] = "2"
+        fixed["x-rpc-page"] = "v4.1.5-ys_#ys"
+        fixed["x-rpc-tool-verison"] = "v4.1.5-ys"
     fixed["DS"] = _mys_ds(q, b)
     return fixed
 
@@ -1334,7 +1346,7 @@ class MysPanelSource(BasePanelSource):
                 "GET",
                 url,
                 params=params,
-                headers=_add_mys_challenge_headers(headers, retry_q),
+                headers=_add_mys_challenge_headers(headers, retry_q, game=self.game),
             )
             resp.raise_for_status()
             raw = _as_dict(resp.json())
@@ -1357,7 +1369,7 @@ class MysPanelSource(BasePanelSource):
                 "POST",
                 url,
                 json=body,
-                headers=_add_mys_challenge_headers(headers, "", body),
+                headers=_add_mys_challenge_headers(headers, "", body, self.game),
             )
             resp.raise_for_status()
             raw = _as_dict(resp.json())
