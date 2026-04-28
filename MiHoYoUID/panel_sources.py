@@ -25,6 +25,15 @@ def _timeout() -> float:
     return float(MiaoConfig.get_config("PanelRequestTimeout").data)
 
 
+def _mys_timeout() -> httpx.Timeout:
+    # miao-plugin gives mysPanel 20s before timeout, and GsCore's own mys
+    # request wrapper allows much longer network waits.  Use a dedicated,
+    # more tolerant timeout for MiHoYo endpoints so slow character/detail
+    # responses do not fail immediately with ReadTimeout.
+    total = max(_timeout(), 30.0)
+    return httpx.Timeout(total, connect=10.0, read=total, write=10.0, pool=10.0)
+
+
 def _strip_url(url: str) -> str:
     return (url or "").strip().rstrip("/")
 
@@ -886,8 +895,13 @@ async def _fill_gscore_device_headers(headers: Dict[str, str], uid: str, game: s
     if headers.get("x-rpc-device_fp") and headers.get("x-rpc-device_id"):
         return headers
     try:
-        device_id = await mys_api.get_user_device_id(uid, game)
-        device_fp = await mys_api.get_user_fp(uid, game)
+        device_id, device_fp = await asyncio.wait_for(
+            asyncio.gather(
+                mys_api.get_user_device_id(uid, game),
+                mys_api.get_user_fp(uid, game),
+            ),
+            timeout=5,
+        )
         if device_id and not headers.get("x-rpc-device_id"):
             headers["x-rpc-device_id"] = str(device_id)
         if device_fp and not headers.get("x-rpc-device_fp"):
@@ -1219,7 +1233,7 @@ class MysPanelSource(BasePanelSource):
         index_q = _mys_query(index_params)
         index_url = urljoin(f"{base_url}/", "game_record/app/genshin/api/index")
         try:
-            async with httpx.AsyncClient(timeout=_timeout()) as client:
+            async with httpx.AsyncClient(timeout=_mys_timeout()) as client:
                 index_headers = await _fill_gscore_device_headers(_mys_headers(cookie, index_q), uid, "gs")
                 index_raw = await self._get_json_with_retry(
                     client,
@@ -1276,7 +1290,7 @@ class MysPanelSource(BasePanelSource):
         q = _mys_query(params)
         url = urljoin(f"{base_url}/", "game_record/app/hkrpg/api/avatar/info")
         try:
-            async with httpx.AsyncClient(timeout=_timeout()) as client:
+            async with httpx.AsyncClient(timeout=_mys_timeout()) as client:
                 headers = await _fill_gscore_device_headers(_mys_headers(cookie, q), uid, "sr")
                 raw = await self._get_json_with_retry(client, url, params, headers, q)
         except httpx.HTTPStatusError as e:
@@ -1310,12 +1324,18 @@ class MysPanelSource(BasePanelSource):
         headers: Dict[str, str],
         q: str,
     ) -> Dict[str, Any]:
-        resp = await client.get(url, params=params, headers=headers)
+        resp = await self._request_json_with_timeout_retry(client, "GET", url, params=params, headers=headers)
         resp.raise_for_status()
         raw = _as_dict(resp.json())
         if _is_mys_dead_code(raw):
             retry_q = _mys_query(params, sort_keys=True)
-            resp = await client.get(url, params=params, headers=_add_mys_challenge_headers(headers, retry_q))
+            resp = await self._request_json_with_timeout_retry(
+                client,
+                "GET",
+                url,
+                params=params,
+                headers=_add_mys_challenge_headers(headers, retry_q),
+            )
             resp.raise_for_status()
             raw = _as_dict(resp.json())
         _check_retcode(self.source_name, raw)
@@ -1328,15 +1348,38 @@ class MysPanelSource(BasePanelSource):
         body: Dict[str, Any],
         headers: Dict[str, str],
     ) -> Dict[str, Any]:
-        resp = await client.post(url, json=body, headers=headers)
+        resp = await self._request_json_with_timeout_retry(client, "POST", url, json=body, headers=headers)
         resp.raise_for_status()
         raw = _as_dict(resp.json())
         if _is_mys_dead_code(raw):
-            resp = await client.post(url, json=body, headers=_add_mys_challenge_headers(headers, "", body))
+            resp = await self._request_json_with_timeout_retry(
+                client,
+                "POST",
+                url,
+                json=body,
+                headers=_add_mys_challenge_headers(headers, "", body),
+            )
             resp.raise_for_status()
             raw = _as_dict(resp.json())
         _check_retcode(self.source_name, raw)
         return raw
+
+    async def _request_json_with_timeout_retry(
+        self,
+        client: httpx.AsyncClient,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        last_error: httpx.ReadTimeout | None = None
+        for _ in range(2):
+            try:
+                return await client.request(method, url, **kwargs)
+            except httpx.ReadTimeout as e:
+                last_error = e
+        if last_error:
+            raise last_error
+        raise httpx.ReadTimeout("米游社请求读取超时")
 
     async def fetch(self, uid: str) -> PanelResult:
         cached = get_cached_panel(_cache_key(self.source_name, self.game), uid)
