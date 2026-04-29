@@ -931,7 +931,7 @@ def _miao_headers(cookie: str, uid: str, q: str = "", body: str = "", device_fp:
         "x-rpc-client_type": "5",
         "User-Agent": (
             f"Mozilla/5.0 (Linux; Android 12; {device})"
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.73 "
+            " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.73 "
             "Mobile Safari/537.36 miHoYoBBS/2.40.1"
         ),
         "Referer": "https://webstatic.mihoyo.com/",
@@ -1411,7 +1411,7 @@ class MysPanelSource(BasePanelSource):
                 character_ids = [x.get("id") for x in character_list if isinstance(x, dict) and x.get("id")]
                 detail_raw: Dict[str, Any] = {}
                 if character_ids:
-                    detail_body = {"character_ids": character_ids, "role_id": uid, "server": server}
+                    detail_body = {"role_id": uid, "server": server, "character_ids": character_ids}
                     detail_url = urljoin(f"{base_url}/", "game_record/app/genshin/api/character/detail")
                     detail_raw = await self._post_miao_json_with_retry(
                         client,

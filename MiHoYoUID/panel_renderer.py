@@ -117,6 +117,17 @@ CHARACTER_ID_NAMES: Dict[int, str] = {
 ARTIFACT_SLOT_ICONS = ["花", "羽", "沙", "杯", "冠"]
 SR_RELIC_SLOT_ICONS = ["头", "手", "躯", "脚", "球", "绳"]
 
+SR_TRAILBLAZER_ID_NAMES: Dict[int, str] = {
+    8001: "星·毁灭",
+    8002: "穹·毁灭",
+    8003: "星·存护",
+    8004: "穹·存护",
+    8005: "星·同谐",
+    8006: "穹·同谐",
+    8007: "星·记忆",
+    8008: "穹·记忆",
+}
+
 ARTIFACT_SLOT_INDEX = {
     "EQUIP_BRACER": 1,
     "EQUIP_NECKLACE": 2,
@@ -846,6 +857,13 @@ def _draw_profile_list_image(result: PanelResult, characters: List[Dict[str, Any
 
 def _char_name(char: Dict[str, Any]) -> str:
     if char.get("game") == "sr":
+        avatar_id = char.get("avatar_id") or char.get("avatarId")
+        try:
+            mapped = SR_TRAILBLAZER_ID_NAMES.get(int(avatar_id))
+        except (TypeError, ValueError):
+            mapped = None
+        if mapped:
+            return mapped
         name = char.get("name") or char.get("avatar_name")
         if name and not str(name).isdigit():
             return str(name)
